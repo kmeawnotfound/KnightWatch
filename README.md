@@ -6,6 +6,9 @@ A client-side fair-play scanner for Lichess games. It downloads a player's game 
 
 **It produces a statistical signal, not a verdict.** Strong players, fast time controls, small samples, and unusual openings can all produce high scores. No score here is proof of cheating, and the app is not affiliated with Lichess.
 
+- **Source:** <https://github.com/kmeawnotfound/KnightWatch>
+- **Live:** <https://knightwatch-one.vercel.app>
+
 ---
 
 ## Quick start
