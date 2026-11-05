@@ -10,11 +10,13 @@ const MAX_MONTHS = 12;
 
 export class ChessComError extends Error {
   hint: string | null;
+  status: number | null;
 
-  constructor(message: string, options: { hint?: string | null } = {}) {
+  constructor(message: string, options: { hint?: string | null; status?: number | null } = {}) {
     super(message);
     this.name = "ChessComError";
     this.hint = options.hint ?? null;
+    this.status = options.status ?? null;
   }
 }
 
@@ -82,16 +84,19 @@ async function requestJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   if (response.status === 404) {
     throw new ChessComError("That Chess.com player was not found.", {
       hint: "Check the username. Chess.com usernames are not case-sensitive.",
+      status: 404,
     });
   }
   if (response.status === 429) {
     throw new ChessComError("Chess.com is rate-limiting requests.", {
       hint: "Wait a minute and try again, or scan fewer games.",
+      status: 429,
     });
   }
   if (!response.ok) {
     throw new ChessComError(`Chess.com returned HTTP ${response.status}.`, {
       hint: "Try again in a moment. If it keeps failing, the public API may be unavailable.",
+      status: response.status,
     });
   }
   return (await response.json()) as T;
@@ -152,7 +157,12 @@ export async function fetchChessComGames(
     if (months >= MAX_MONTHS) break;
     if (signal?.aborted) break;
 
-    const payload = await requestJson<{ games?: ChessComGame[] }>(archiveUrl, signal);
+    const payload = await requestJson<{ games?: ChessComGame[] }>(archiveUrl, signal).catch((error) => {
+      // Chess.com creates a month's archive lazily. A 404 simply means the
+      // player has no games in that month, so skip it instead of failing.
+      if (error instanceof ChessComError && error.status === 404) return { games: [] };
+      throw error;
+    });
     months += 1;
     const games = Array.isArray(payload.games) ? payload.games : [];
     const eligible = games
