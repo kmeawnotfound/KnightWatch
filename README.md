@@ -94,7 +94,7 @@ The browser engine uses one single-threaded Stockfish WASM worker per logical CP
 - **Defaults:** depth 12 and 12 sampled positions per game. Raise depth for stronger analysis; lower it for speed.
 - **Engine mode:** `Auto` uses local Stockfish, `Cloud` uses Lichess cloud evaluation (throttled and cached), and `Existing Lichess analysis only` skips local search.
 
-All analysis is CPU-bound in the browser. A phone or low-power laptop will be much slower than a desktop. The first scan in a session also pays the one-time WASM download and instantiation cost; the assets are cached by the browser afterwards.
+All analysis is CPU-bound in the browser. A phone or low-power laptop will be much slower than a desktop. The worker pool starts warming as soon as you focus a scan field, is reused across scans, and is released after two idle minutes. The WASM assets are cached by the browser after the first load.
 
 ---
 

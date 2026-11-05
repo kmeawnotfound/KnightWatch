@@ -1,6 +1,7 @@
 import "./styles.css";
 
 import { ClientJobManager } from "./lib/jobs.js";
+import { closeEnginePool, getEnginePool } from "./lib/engine.js";
 import { checkToken as checkLichessToken } from "./lib/lichess.js";
 import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } from "./lib/export.js";
 
@@ -23,6 +24,9 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
     filters: { result: "all", color: "all", speed: "all" },
     lastLogCount: -1,
     finished: false,
+    engineWorkers: 4,
+    warmStarted: false,
+    engineReady: false,
   };
 
   const els = {
@@ -178,6 +182,7 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
         ? Number(navigator.hardwareConcurrency)
         : 4;
     const workers = Math.max(1, Math.min(8, cores - 1));
+    state.engineWorkers = workers;
     if (typeof WebAssembly === "object") {
       els.enginePill.classList.add("ok");
       setText(els.enginePillText, `Stockfish WASM · ${workers} worker${workers === 1 ? "" : "s"}`);
@@ -186,8 +191,33 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
       setText(els.enginePillText, "WebAssembly unavailable");
     }
 
+    window.addEventListener("pagehide", closeEnginePool);
+
     const jobId = new URLSearchParams(window.location.search).get("job");
     if (jobId) await loadJobReport(jobId);
+  }
+
+  // Start the WASM pool as soon as the user shows intent (focusing a form
+  // field), so a later scan does not sit at "Preparing analysis…".
+  function warmEngine() {
+    if (state.warmStarted || typeof WebAssembly !== "object") return;
+    const pane = $(".tab-pane.active");
+    const mode = pane?.querySelector("select[id$='engine']")?.value || "auto";
+    if (mode === "lichess" || mode === "cloud") return;
+    state.warmStarted = true;
+    const workers = state.engineWorkers;
+    const label = `Stockfish WASM · ${workers} worker${workers === 1 ? "" : "s"}`;
+    if (!state.engineReady) setText(els.enginePillText, "Loading Stockfish…");
+    getEnginePool()
+      .then(() => {
+        state.engineReady = true;
+        els.enginePill.classList.add("ok");
+        setText(els.enginePillText, label);
+      })
+      .catch(() => {
+        state.warmStarted = false;
+        setText(els.enginePillText, label);
+      });
   }
 
   async function loadJobReport(jobId) {
@@ -212,6 +242,8 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
 
     els.scanForm.addEventListener("submit", submitScan);
     els.pgnForm.addEventListener("submit", submitPgn);
+    els.scanForm.addEventListener("focusin", warmEngine, { once: true });
+    els.pgnForm.addEventListener("focusin", warmEngine, { once: true });
     $("#toggle-token").addEventListener("click", toggleToken);
     $("#check-token").addEventListener("click", checkToken);
     $("#error-close").addEventListener("click", clearError);
@@ -444,6 +476,7 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
     profile: "Profile",
     fetching: "Downloading",
     parsing: "Parsing",
+    engine: "Engine",
     analyzing: "Analysing",
     scoring: "Scoring",
     done: "Complete",
@@ -468,6 +501,7 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
     else if (phase === "profile") title = "Loading the Lichess profile…";
     else if (phase === "fetching") title = "Downloading games from Lichess…";
     else if (phase === "parsing") title = "Parsing PGN…";
+    else if (phase === "engine") title = "Loading Stockfish WASM…";
     else if (phase === "analyzing") {
       title = progress.current_game
         ? `Analysing game ${progress.analyzed || 0} of ${progress.total_games || "?"}…`

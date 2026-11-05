@@ -190,6 +190,11 @@ export class UciEngine {
     });
   }
 
+  /** Ask the current search to finish early. The worker stays alive. */
+  stop(): void {
+    if (!this.terminated) this.post("stop");
+  }
+
   terminate(): void {
     if (this.terminated) return;
     this.terminated = true;
@@ -234,8 +239,21 @@ export class StockfishPool {
     return this.engines[0]?.name || "Stockfish";
   }
 
-  async ready(): Promise<void> {
-    await Promise.all(this.engines.map((engine) => engine.ready));
+  async ready(onProgress?: (done: number, total: number) => void): Promise<void> {
+    const total = this.engines.length;
+    let done = 0;
+    await Promise.all(
+      this.engines.map(async (engine) => {
+        await engine.ready;
+        done += 1;
+        onProgress?.(done, total);
+      }),
+    );
+  }
+
+  /** Stop in-flight searches without tearing the pool down. */
+  stopAll(): void {
+    for (const engine of this.engines) engine.stop();
   }
 
   private acquire(): Promise<UciEngine> {
@@ -276,4 +294,116 @@ export class StockfishPool {
     this.waiters = [];
     for (const engine of this.engines) engine.terminate();
   }
+}
+
+// ---------------------------------------------------------------------------
+// Session-wide pool
+//
+// Booting eight WASM workers is the slowest part of a scan, so the pool is
+// created once and reused. It is released after a short idle period to give
+// the browser its memory back.
+// ---------------------------------------------------------------------------
+
+type PoolProgressListener = (done: number, total: number) => void;
+
+const progressListeners = new Set<PoolProgressListener>();
+let progressDone = 0;
+let progressTotal = 0;
+let sharedPool: StockfishPool | null = null;
+let sharedReady: Promise<StockfishPool> | null = null;
+let idleTimer: ReturnType<typeof setTimeout> | null = null;
+let generation = 0;
+let poolReady = false;
+
+function emitPoolProgress(done: number, total: number): void {
+  progressDone = done;
+  progressTotal = total;
+  for (const listener of [...progressListeners]) listener(done, total);
+}
+
+/** Observe worker start-up. Fires immediately with the current state. */
+export function onEnginePoolProgress(listener: PoolProgressListener): () => void {
+  progressListeners.add(listener);
+  if (progressTotal > 0) listener(progressDone, progressTotal);
+  return () => {
+    progressListeners.delete(listener);
+  };
+}
+
+async function preloadEngineWasm(scriptUrl: string): Promise<void> {
+  // Eight workers requesting the same 1.8 MB file at once can each miss the
+  // HTTP cache on a first visit. Fetch it once so they all hit the cache.
+  const wasmUrl = scriptUrl.replace(/\.js(?:\?.*)?$/, ".wasm");
+  try {
+    await fetch(wasmUrl, { cache: "force-cache" });
+  } catch {
+    /* Workers will fetch it themselves if this fails. */
+  }
+}
+
+/**
+ * Return the shared engine pool, starting it on first use. Repeated calls
+ * while it is booting return the same promise.
+ */
+export function getEnginePool(): Promise<StockfishPool> {
+  if (idleTimer) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+  if (sharedReady) return sharedReady;
+
+  const url = engineScriptUrl();
+  const startedGeneration = generation;
+  const promise = preloadEngineWasm(url)
+    .then(() => {
+      if (startedGeneration !== generation) {
+        throw new Error("Stockfish pool was closed during startup.");
+      }
+      const pool = new StockfishPool({ scriptUrl: url });
+      sharedPool = pool;
+      poolReady = false;
+      progressDone = 0;
+      progressTotal = pool.workers;
+      return pool.ready((done, total) => emitPoolProgress(done, total)).then(() => {
+        poolReady = true;
+        return pool;
+      });
+    })
+    .catch((error) => {
+      if (sharedReady === promise) {
+        sharedReady = null;
+        sharedPool = null;
+      }
+      poolReady = false;
+      throw error;
+    });
+
+  sharedReady = promise;
+  return promise;
+}
+
+/** True when the shared pool has finished booting and is safe to use now. */
+export function isEnginePoolReady(): boolean {
+  return poolReady;
+}
+
+/** Keep the warm pool around briefly, then release its memory. */
+export function releaseEnginePool(idleMs = 120_000): void {
+  if (!sharedPool && !sharedReady) return;
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => closeEnginePool(), idleMs);
+}
+
+export function closeEnginePool(): void {
+  generation += 1;
+  if (idleTimer) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+  sharedPool?.close();
+  sharedPool = null;
+  sharedReady = null;
+  poolReady = false;
+  progressDone = 0;
+  progressTotal = 0;
 }

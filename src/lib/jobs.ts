@@ -10,7 +10,13 @@ import {
   trimReportDetails,
 } from "./analysis";
 import { moveAsDict, normalizeName } from "./chess-utils";
-import { StockfishPool } from "./engine";
+import {
+  StockfishPool,
+  getEnginePool,
+  isEnginePoolReady,
+  onEnginePoolProgress,
+  releaseEnginePool,
+} from "./engine";
 import { CloudEvaluator, JobCancelled, LichessError, getProfile, iterGames } from "./lichess";
 import { deleteReport, loadReport, saveReport } from "./storage";
 import type {
@@ -181,6 +187,7 @@ export class ClientJobManager {
       job.token = null;
       job.pgn = null;
       job.controller = null;
+      releaseEnginePool();
     }
   }
 
@@ -211,6 +218,13 @@ export class ClientJobManager {
       totalHint = intOrZero((profile.counts || {}).all) || null;
     }
     job.progress.total_hint = totalHint;
+
+    // Warm the engine while the games download so the first scan does not
+    // stall at "Preparing analysis…".
+    const requestedEngine = String(params.engine || "auto").toLowerCase();
+    if (requestedEngine === "auto" || requestedEngine === "stockfish") {
+      void getEnginePool().catch(() => undefined);
+    }
 
     this.phase(job, "fetching", 5, "Downloading games from Lichess…");
     const rawGames: Record<string, any>[] = [];
@@ -300,9 +314,16 @@ export class ClientJobManager {
     let activeMode = engineMode;
 
     if (engineMode === "auto" || engineMode === "stockfish") {
+      if (!isEnginePoolReady()) {
+        this.phase(job, "engine", 35, "Loading Stockfish WASM…");
+      }
+      const stopListening = onEnginePoolProgress((done, total) => {
+        if (done >= total) return;
+        job.progress.percent = 35 + Math.round((done / total) * 4);
+        this.log(job, `Loading Stockfish WASM… ${done}/${total} workers ready.`);
+      });
       try {
-        pool = new StockfishPool();
-        await pool.ready();
+        pool = await getEnginePool();
         activeMode = "stockfish";
         this.log(
           job,
@@ -312,9 +333,10 @@ export class ClientJobManager {
         const message = (error as Error).message || String(error);
         warnings.push(`Stockfish unavailable: ${message}`);
         this.log(job, `Stockfish unavailable: ${message}`);
-        pool?.close();
         pool = null;
         activeMode = engineMode === "stockfish" ? "cloud" : "auto";
+      } finally {
+        stopListening();
       }
     }
 
@@ -385,6 +407,10 @@ export class ClientJobManager {
       return [game, metrics];
     };
 
+    if (pool && activeMode === "stockfish") {
+      this.phase(job, "analyzing", 40, `Analysing ${total} game${total === 1 ? "" : "s"}…`);
+    }
+
     try {
       if (pool && activeMode === "stockfish") {
         const enginePool = pool;
@@ -423,7 +449,12 @@ export class ClientJobManager {
         }
       }
     } finally {
-      pool?.close();
+      if (pool) {
+        // Interrupted searches should not keep burning CPU; otherwise keep the
+        // pool warm so the next scan starts instantly.
+        if (job.cancel) pool.stopAll();
+        releaseEnginePool();
+      }
     }
 
     if (!gameMetrics.length) {
@@ -527,7 +558,7 @@ export class ClientJobManager {
     const eta = done > 0 ? Math.trunc((elapsed / done) * Math.max(0, total - done)) : null;
     job.progress.analyzed = done;
     job.progress.total_games = total;
-    job.progress.percent = Math.min(95, 35 + Math.trunc((60 * done) / Math.max(total, 1)));
+    job.progress.percent = Math.min(95, 40 + Math.trunc((55 * done) / Math.max(total, 1)));
     job.progress.current_game = game.id;
     job.progress.eta_seconds = eta;
     if (done && done % 10 === 0) this.log(job, `Analysed ${done}/${total} games…`);
