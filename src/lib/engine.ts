@@ -11,7 +11,7 @@ import { sideToMove } from "./chess-utils";
  * workers at once.
  */
 
-export const ENGINE_SCRIPT = "engine/stockfish-19-lite-single.js";
+export const ENGINE_SCRIPT = "engine/stockfish-19-lite-single-v2.js";
 
 export function engineScriptUrl(): string {
   return new URL(ENGINE_SCRIPT, document.baseURI).href;
@@ -22,7 +22,14 @@ export function defaultWorkerCount(): number {
     typeof navigator !== "undefined" && Number(navigator.hardwareConcurrency)
       ? Number(navigator.hardwareConcurrency)
       : 4;
-  return Math.max(1, Math.min(8, cores - 1));
+  // Low-memory devices struggle to start eight WASM workers, so cap by RAM
+  // when the browser reports it.
+  const memoryGb =
+    typeof navigator !== "undefined" && Number((navigator as any).deviceMemory)
+      ? Number((navigator as any).deviceMemory)
+      : 8;
+  const cap = memoryGb <= 4 ? 4 : 8;
+  return Math.max(1, Math.min(cap, cores - 1));
 }
 
 export function defaultHashMb(workers: number): number {
@@ -64,14 +71,20 @@ export class UciEngine {
   readonly ready: Promise<void>;
   name = "Stockfish";
   private listeners = new Set<LineListener>();
+  private errorWaiters = new Set<(error: Error) => void>();
+  private initError: Error | null = null;
   private terminated = false;
-  private initTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(scriptUrl: string, hashMb: number) {
     this.worker = new Worker(scriptUrl);
     this.worker.onmessage = (event: MessageEvent) => this.handleMessage(event.data);
     this.worker.onerror = (event: ErrorEvent) => {
-      this.emit(`info string worker error: ${event.message || "unknown error"}`);
+      const detail = event.message || "unknown error";
+      const error = new Error(`Stockfish worker failed to start (${detail}).`);
+      this.initError = error;
+      for (const reject of [...this.errorWaiters]) reject(error);
+      this.errorWaiters.clear();
+      this.emit(`info string worker error: ${detail}`);
     };
     this.ready = this.init(hashMb);
     // Avoid an unhandled rejection when the UI never awaits ready().
@@ -105,29 +118,43 @@ export class UciEngine {
     this.worker.postMessage(command);
   }
 
-  private waitFor(pattern: RegExp, timeoutMs = 60000): Promise<string> {
+  private waitFor(pattern: RegExp, timeoutMs = 20000): Promise<string> {
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.listeners.delete(listener);
-        reject(new Error(`Stockfish did not answer ${pattern} within ${timeoutMs / 1000}s.`));
-      }, timeoutMs);
-      const listener = (line: string) => {
-        if (!pattern.test(line)) return;
+      if (this.initError) {
+        reject(this.initError);
+        return;
+      }
+      let timer: ReturnType<typeof setTimeout>;
+      const cleanup = () => {
         clearTimeout(timer);
         this.listeners.delete(listener);
+        this.errorWaiters.delete(onError);
+      };
+      const listener = (line: string) => {
+        if (!pattern.test(line)) return;
+        cleanup();
         resolve(line);
       };
+      const onError = (error: Error) => {
+        cleanup();
+        reject(error);
+      };
+      timer = setTimeout(() => {
+        cleanup();
+        reject(new Error(`Stockfish did not answer ${pattern} within ${timeoutMs / 1000}s.`));
+      }, timeoutMs);
       this.listeners.add(listener);
+      this.errorWaiters.add(onError);
     });
   }
 
   private async init(hashMb: number): Promise<void> {
     this.post("uci");
-    await this.waitFor(/^uciok/, 60000);
+    await this.waitFor(/^uciok/, 20000);
     this.post(`setoption name Threads value 1`);
     this.post(`setoption name Hash value ${Math.max(16, hashMb)}`);
     this.post("isready");
-    await this.waitFor(/^readyok/, 30000);
+    await this.waitFor(/^readyok/, 15000);
   }
 
   async evaluate(fen: string, depth: number): Promise<EngineEval | null> {
@@ -198,7 +225,10 @@ export class UciEngine {
   terminate(): void {
     if (this.terminated) return;
     this.terminated = true;
-    if (this.initTimer) clearTimeout(this.initTimer);
+    for (const reject of [...this.errorWaiters]) {
+      reject(new Error("Stockfish worker was terminated."));
+    }
+    this.errorWaiters.clear();
     try {
       this.worker.postMessage("quit");
     } catch {

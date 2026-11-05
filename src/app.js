@@ -1,7 +1,7 @@
 import "./styles.css";
 
 import { ClientJobManager } from "./lib/jobs.js";
-import { closeEnginePool, getEnginePool } from "./lib/engine.js";
+import { closeEnginePool, defaultWorkerCount, getEnginePool } from "./lib/engine.js";
 import { checkToken as checkLichessToken } from "./lib/lichess.js";
 import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } from "./lib/export.js";
 
@@ -177,11 +177,7 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
 
   async function init() {
     bindEvents();
-    const cores =
-      typeof navigator !== "undefined" && Number(navigator.hardwareConcurrency)
-        ? Number(navigator.hardwareConcurrency)
-        : 4;
-    const workers = Math.max(1, Math.min(8, cores - 1));
+    const workers = defaultWorkerCount();
     state.engineWorkers = workers;
     if (typeof WebAssembly === "object") {
       els.enginePill.classList.add("ok");
