@@ -507,17 +507,33 @@ export function parsePgnGames(text: string, limit = 200): GameRecord[] {
       const value = String(headers[key] || "").trim();
       return value === "?" || value === "-" ? "" : value;
     };
+    let openingName = cleanHeader("Opening");
+    if (!openingName) {
+      // Chess.com exports ECOUrl instead of Opening; turn its slug into a name.
+      const ecoUrl = cleanHeader("ECOUrl");
+      const slug = ecoUrl ? ecoUrl.replace(/\/+$/, "").split("/").pop() : "";
+      if (slug) {
+        try {
+          openingName = decodeURIComponent(slug).replace(/-/g, " ");
+        } catch {
+          openingName = slug.replace(/-/g, " ");
+        }
+      }
+    }
     const site = cleanHeader("Site");
+    // Chess.com exports a Link header instead of GameId/GameURL; prefer any
+    // explicit game URL so each game gets a stable, unique id.
+    const gameUrl = cleanHeader("GameURL") || cleanHeader("Link") || site;
     let gameId = cleanHeader("GameId");
-    if (!gameId && site) {
-      const tail = site.replace(/\/+$/, "").split("/").filter(Boolean);
-      gameId = tail.length ? tail[tail.length - 1] : site;
+    if (!gameId && gameUrl) {
+      const tail = gameUrl.replace(/\/+$/, "").split("/").filter(Boolean);
+      gameId = tail.length ? tail[tail.length - 1] : gameUrl;
     }
     if (!gameId) gameId = `pgn-${index}`;
 
     const game: GameRecord = {
       id: gameId,
-      url: cleanHeader("GameURL") || site,
+      url: gameUrl,
       white: headers.White || "White",
       black: headers.Black || "Black",
       white_elo: intOrNull(headers.WhiteElo),
@@ -528,7 +544,7 @@ export function parsePgnGames(text: string, limit = 200): GameRecord[] {
       speed,
       perf: speed,
       created_at: createdAt,
-      opening: headers.Opening || "Unknown opening",
+      opening: openingName || "Unknown opening",
       eco: headers.ECO || "",
       time_control: initial !== null && !clocksInferred ? timeControlLabel(speed, initial, increment) : speed,
       clock_initial: initial,
@@ -1140,6 +1156,11 @@ export function aggregateReport(games: GameMetrics[], options: AggregateOptions)
   }
   if (options.source === "pgn") {
     notes.push("Imported PGN data. Only games with eval/clock annotations or local engine analysis were scored deeply.");
+  }
+  if (options.source === "chesscom") {
+    notes.push(
+      "Chess.com games were downloaded from the public API. Chess.com PGNs usually omit engine evaluations, so local Stockfish or cloud eval supplies the move analysis.",
+    );
   }
   if (options.engineMode === "lichess" && options.source !== "demo") {
     notes.push("Engine mode was set to existing Lichess analysis only; unanalysed games contribute mostly heuristics.");

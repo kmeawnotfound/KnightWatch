@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>KnightWatch — Lichess fair-play scanner</title>
-  <meta name="description" content="Scan a Lichess player's games for statistical fair-play signals. Stockfish analysis runs entirely in your browser." />
+  <title>KnightWatch — Lichess &amp; Chess.com fair-play scanner</title>
+  <meta name="description" content="Scan a Lichess or Chess.com player's games for statistical fair-play signals. Stockfish analysis runs entirely in your browser." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0f14'/%3E%3Ctext x='32' y='45' font-size='38' text-anchor='middle' fill='%23f0c674'%3E%E2%99%9E%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
@@ -14,13 +14,14 @@
       <span class="brand-mark" aria-hidden="true">♞</span>
       <div>
         <h1>KnightWatch</h1>
-        <p>Lichess fair-play scanner</p>
+        <p>Lichess &amp; Chess.com fair-play scanner</p>
       </div>
     </div>
     <div class="topbar-right">
       <span class="status-pill" id="engine-pill"><span class="dot"></span><span id="engine-pill-text">Checking engine…</span></span>
       <a class="top-link" href="https://github.com/kmeawnotfound/KnightWatch" target="_blank" rel="noreferrer">GitHub ↗</a>
       <a class="top-link" href="https://lichess.org" target="_blank" rel="noreferrer">lichess.org ↗</a>
+      <a class="top-link" href="https://www.chess.com" target="_blank" rel="noreferrer">chess.com ↗</a>
     </div>
   </header>
 
@@ -30,7 +31,7 @@
         <span class="eyebrow">Statistical screening, not a verdict</span>
         <h2>Look for engine-like patterns in a player's games.</h2>
         <p>
-          Downloads a player's Lichess history, evaluates positions with Stockfish compiled to
+          Downloads a player's Lichess or Chess.com history, evaluates positions with Stockfish compiled to
           WebAssembly, and compares accuracy, centipawn loss, move timing and results with
           rating-appropriate baselines. Everything runs in this browser tab.
         </p>
@@ -44,6 +45,7 @@
     <section class="panel input-panel">
       <div class="tabs" role="tablist" aria-label="Input mode">
         <button class="tab active" id="tab-lichess" role="tab" aria-selected="true">Lichess scan</button>
+        <button class="tab" id="tab-chesscom" role="tab" aria-selected="false">Chess.com scan</button>
         <button class="tab" id="tab-pgn" role="tab" aria-selected="false">Paste PGN</button>
         <button class="tab" id="tab-demo" role="tab" aria-selected="false">Demo reports</button>
       </div>
@@ -79,9 +81,9 @@
             <div class="field">
               <label for="perf">Time control</label>
               <select id="perf">
-                <option value="all">All standard</option>
+                <option value="all" selected>All standard</option>
                 <option value="bullet">Bullet</option>
-                <option value="blitz" selected>Blitz</option>
+                <option value="blitz">Blitz</option>
                 <option value="rapid">Rapid</option>
                 <option value="classical">Classical</option>
                 <option value="ultraBullet">UltraBullet</option>
@@ -137,6 +139,77 @@
           <div class="form-actions">
             <button class="btn primary" type="submit" id="scan-submit">Start scan</button>
             <span class="form-note" id="scan-note">Runs locally: the scan uses every CPU core except one and may take a few minutes for 50 games.</span>
+          </div>
+        </form>
+      </div>
+
+      <div id="pane-chesscom" class="tab-pane">
+        <form id="cc-form" autocomplete="off">
+          <div class="form-row two">
+            <div class="field">
+              <label for="cc-username">Chess.com username</label>
+              <input id="cc-username" type="text" placeholder="e.g. Hikaru" maxlength="60" required />
+              <span class="field-hint">Uses Chess.com's public API. No token or password is needed.</span>
+            </div>
+            <div class="field">
+              <label for="cc-perf">Time control</label>
+              <select id="cc-perf">
+                <option value="all" selected>All standard</option>
+                <option value="bullet">Bullet</option>
+                <option value="blitz">Blitz</option>
+                <option value="rapid">Rapid</option>
+                <option value="daily">Daily</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row four">
+            <div class="field">
+              <label for="cc-max">Games to scan</label>
+              <select id="cc-max">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+                <option value="250">250</option>
+                <option value="500">500</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="cc-engine">Engine mode</label>
+              <select id="cc-engine">
+                <option value="auto" selected>Auto (recommended)</option>
+                <option value="stockfish">Force Stockfish WASM</option>
+                <option value="cloud">Lichess cloud eval</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="cc-depth">Stockfish depth</label>
+              <select id="cc-depth">
+                <option value="10">10 — fastest</option>
+                <option value="12" selected>12 — fast</option>
+                <option value="14">14 — balanced</option>
+                <option value="16">16 — thorough</option>
+                <option value="18">18 — slow</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="cc-samples">Positions / game</label>
+              <select id="cc-samples">
+                <option value="12" selected>12</option>
+                <option value="24">24</option>
+                <option value="40">40</option>
+                <option value="0">All moves</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row inline">
+            <label class="check"><input type="checkbox" id="cc-unrated" /> Include unrated games</label>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn primary" type="submit" id="cc-submit">Start Chess.com scan</button>
+            <span class="form-note" id="cc-note">Downloads up to the last 12 months of public games, then analyses them locally in your browser.</span>
           </div>
         </form>
       </div>
@@ -360,7 +433,7 @@
       KnightWatch · client-side fair-play screening ·
       <a class="footer-link" href="https://github.com/kmeawnotfound/KnightWatch" target="_blank" rel="noreferrer">GitHub ↗</a>
     </span>
-    <span>Built on the public Lichess API and Stockfish WASM. Not affiliated with Lichess.</span>
+    <span>Built on the public Lichess and Chess.com APIs and Stockfish WASM. Not affiliated with either site.</span>
   </footer>
 
   <div id="game-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -373,7 +446,7 @@
           <p class="muted" id="modal-subtitle"></p>
         </div>
         <div class="modal-actions">
-          <a class="btn ghost tiny hidden" id="modal-link" target="_blank" rel="noreferrer">Open on Lichess ↗</a>
+          <a class="btn ghost tiny hidden" id="modal-link" target="_blank" rel="noreferrer">Open game ↗</a>
           <button class="icon-btn" id="modal-close" aria-label="Close">×</button>
         </div>
       </div>

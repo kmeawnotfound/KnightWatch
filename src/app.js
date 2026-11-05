@@ -33,8 +33,10 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
     enginePill: $("#engine-pill"),
     enginePillText: $("#engine-pill-text"),
     scanForm: $("#scan-form"),
+    ccForm: $("#cc-form"),
     pgnForm: $("#pgn-form"),
     scanSubmit: $("#scan-submit"),
+    ccSubmit: $("#cc-submit"),
     pgnSubmit: $("#pgn-submit"),
     progressPanel: $("#progress-panel"),
     progressPhase: $("#progress-phase"),
@@ -233,12 +235,15 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
 
   function bindEvents() {
     $("#tab-lichess").addEventListener("click", () => setTab("lichess"));
+    $("#tab-chesscom").addEventListener("click", () => setTab("chesscom"));
     $("#tab-pgn").addEventListener("click", () => setTab("pgn"));
     $("#tab-demo").addEventListener("click", () => setTab("demo"));
 
     els.scanForm.addEventListener("submit", submitScan);
+    els.ccForm.addEventListener("submit", submitChessCom);
     els.pgnForm.addEventListener("submit", submitPgn);
     els.scanForm.addEventListener("focusin", warmEngine, { once: true });
+    els.ccForm.addEventListener("focusin", warmEngine, { once: true });
     els.pgnForm.addEventListener("focusin", warmEngine, { once: true });
     $("#toggle-token").addEventListener("click", toggleToken);
     $("#check-token").addEventListener("click", checkToken);
@@ -289,6 +294,7 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
   function setTab(name) {
     const mapping = {
       lichess: ["#tab-lichess", "#pane-lichess"],
+      chesscom: ["#tab-chesscom", "#pane-chesscom"],
       pgn: ["#tab-pgn", "#pane-pgn"],
       demo: ["#tab-demo", "#pane-demo"],
     };
@@ -371,6 +377,26 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
     await startJob("lichess", payload, token, els.scanSubmit);
   }
 
+  async function submitChessCom(event) {
+    event.preventDefault();
+    clearError();
+    const username = $("#cc-username").value.trim();
+    if (!username) {
+      showError({ message: "Enter a Chess.com username." }, "Missing username");
+      return;
+    }
+    const payload = {
+      username,
+      time_class: $("#cc-perf").value,
+      max_games: Number($("#cc-max").value),
+      include_unrated: $("#cc-unrated").checked,
+      engine: $("#cc-engine").value,
+      depth: Number($("#cc-depth").value),
+      samples: Number($("#cc-samples").value),
+    };
+    await startJob("chesscom", payload, null, els.ccSubmit);
+  }
+
   async function submitPgn(event) {
     event.preventDefault();
     clearError();
@@ -405,7 +431,9 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
       state.jobId =
         kind === "pgn"
           ? jobs.createPgnJob(payload)
-          : jobs.createLichessJob(payload, token);
+          : kind === "chesscom"
+            ? jobs.createChessComJob(payload)
+            : jobs.createLichessJob(payload, token);
       state.finished = false;
       pollJob();
       state.pollTimer = setInterval(pollJob, 850);
@@ -427,6 +455,7 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
         state.finished = true;
         stopPolling();
         els.scanSubmit.disabled = false;
+        els.ccSubmit.disabled = false;
         els.pgnSubmit.disabled = false;
         try {
           const report = await jobs.getReport(state.jobId);
@@ -439,12 +468,14 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
         state.finished = true;
         stopPolling();
         els.scanSubmit.disabled = false;
+        els.ccSubmit.disabled = false;
         els.pgnSubmit.disabled = false;
         showError({ message: job.error, hint: job.error_hint }, "Scan failed");
       } else if (job.status === "cancelled") {
         state.finished = true;
         stopPolling();
         els.scanSubmit.disabled = false;
+        els.ccSubmit.disabled = false;
         els.pgnSubmit.disabled = false;
         els.progressPanel.classList.add("hidden");
         toast("Scan cancelled");
@@ -454,6 +485,7 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
       if (state.pollErrors >= 5) {
         stopPolling();
         els.scanSubmit.disabled = false;
+        els.ccSubmit.disabled = false;
         els.pgnSubmit.disabled = false;
         showError(error, "Lost connection to the server");
       }
@@ -492,10 +524,11 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
     const progress = job.progress || {};
     const phase = job.phase || job.status;
     const percent = progress.percent || 0;
+    const sourceName = job.kind === "chesscom" ? "Chess.com" : "Lichess";
     let title = "Working…";
     if (phase === "queued") title = "Waiting for a free analysis slot…";
-    else if (phase === "profile") title = "Loading the Lichess profile…";
-    else if (phase === "fetching") title = "Downloading games from Lichess…";
+    else if (phase === "profile") title = `Loading the ${sourceName} profile…`;
+    else if (phase === "fetching") title = `Downloading games from ${sourceName}…`;
     else if (phase === "parsing") title = "Parsing PGN…";
     else if (phase === "engine") title = "Loading Stockfish WASM…";
     else if (phase === "analyzing") {
@@ -561,6 +594,7 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
     els.results.classList.add("hidden");
     els.progressPanel.classList.add("hidden");
     els.scanSubmit.disabled = false;
+    els.ccSubmit.disabled = false;
     els.pgnSubmit.disabled = false;
     clearError();
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -709,7 +743,7 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
     clearNode(list);
     const rows = [
       ["Player", profile.username || meta.username || "—"],
-      ["Source", meta.source === "pgn" ? "PGN import" : meta.source === "demo" ? "Demo report" : "Lichess"],
+      ["Source", meta.source === "pgn" ? "PGN import" : meta.source === "demo" ? "Demo report" : meta.source === "chesscom" ? "Chess.com" : "Lichess"],
       ["Engine", engineLabel(meta.engine_mode, meta.engine_depth, meta.analysis_sources)],
       ["Games", `${fmtInt(meta.games_total)} total · ${fmtInt(meta.games_analyzed)} with engine data`],
       ["Moves", `${fmtInt(meta.moves_analyzed)} analysed · ${fmtInt(meta.timed_moves)} with clocks`],

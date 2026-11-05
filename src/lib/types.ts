@@ -196,7 +196,7 @@ export interface JobProgress {
 
 export interface JobSnapshot {
   id: string;
-  kind: "lichess" | "pgn";
+  kind: "lichess" | "chesscom" | "pgn";
   status: JobStatus;
   phase: string;
   created_at: string;

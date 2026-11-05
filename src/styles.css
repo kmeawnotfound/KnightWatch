@@ -230,6 +230,7 @@ a:hover { text-decoration: underline; }
 .form-row { display: grid; gap: 16px; margin-bottom: 16px; }
 .form-row.two { grid-template-columns: 1fr 1fr; }
 .form-row.three { grid-template-columns: repeat(3, 1fr); }
+.form-row.four { grid-template-columns: repeat(4, 1fr); }
 .form-row.five { grid-template-columns: repeat(5, 1fr); }
 .form-row.inline { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
 
@@ -908,6 +909,7 @@ select {
   .meta-card { grid-column: 1 / -1; }
   .metric-grid { grid-template-columns: repeat(3, 1fr); }
   .form-row.five { grid-template-columns: repeat(3, 1fr); }
+  .form-row.four { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 850px) {
@@ -915,6 +917,7 @@ select {
   .hero-note { max-width: 600px; }
   .form-row.two, .form-row.three { grid-template-columns: 1fr; }
   .form-row.five { grid-template-columns: repeat(2, 1fr); }
+  .form-row.four { grid-template-columns: repeat(2, 1fr); }
   .summary-grid { grid-template-columns: 1fr; }
   .gauge-card { flex-direction: row; justify-content: center; gap: 18px; padding: 18px; }
   .gauge-wrap { width: 140px; height: 140px; }
@@ -937,6 +940,7 @@ select {
   .brand h1 { font-size: 18px; }
   .hero h2 { font-size: 31px; }
   .form-row.five { grid-template-columns: 1fr; }
+  .form-row.four { grid-template-columns: 1fr; }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .demo-grid { grid-template-columns: 1fr; }
   .gauge-card { flex-direction: column; }

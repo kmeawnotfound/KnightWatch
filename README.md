@@ -1,10 +1,10 @@
 # KnightWatch
 
-A client-side fair-play scanner for Lichess games. It downloads a player's game history (or accepts a PGN), evaluates positions with **Stockfish 19 Lite compiled to WebAssembly**, and compares the player's accuracy, centipawn loss, move timing, and results against rating-appropriate baselines.
+A client-side fair-play scanner for Lichess and Chess.com games. It downloads a player's game history (or accepts a PGN), evaluates positions with **Stockfish 19 Lite compiled to WebAssembly**, and compares the player's accuracy, centipawn loss, move timing, and results against rating-appropriate baselines.
 
 **Everything runs in the browser.** There is no application server, no server-side token handling, and no server-side report storage. The deployed app is a static Vite build that can be hosted on Vercel.
 
-**It produces a statistical signal, not a verdict.** Strong players, fast time controls, small samples, and unusual openings can all produce high scores. No score here is proof of cheating, and the app is not affiliated with Lichess.
+**It produces a statistical signal, not a verdict.** Strong players, fast time controls, small samples, and unusual openings can all produce high scores. No score here is proof of cheating, and the app is not affiliated with Lichess or Chess.com.
 
 - **Source:** <https://github.com/kmeawnotfound/KnightWatch>
 - **Live:** <https://knightwatch-one.vercel.app>
@@ -38,7 +38,7 @@ The built site is in `dist/`.
    - output directory: `dist`
 3. Deploy. No environment variables are required.
 
-The only runtime network calls are direct browser requests to `lichess.org` (profile, game export, optional cloud evaluation) and same-origin requests for the bundled Stockfish WASM assets.
+The only runtime network calls are direct browser requests to `lichess.org` (profile, game export, optional cloud evaluation), `api.chess.com` (public profile and game archives), and same-origin requests for the bundled Stockfish WASM assets.
 
 ---
 
@@ -55,11 +55,11 @@ The token is held only in this tab's JavaScript memory for the duration of the s
 
 ---
 
-## Three ways to use it
+## Four ways to use it
 
 ### 1. Lichess scan
 
-Enter a username and token, pick a time control and game count, and start the scan. The browser:
+Enter a username and token, pick a time control and game count, and start the scan. **All standard** is the default time control; bullet, blitz, rapid, classical, UltraBullet, and correspondence are also available. The browser:
 
 1. loads the player's public profile and rating from Lichess;
 2. streams their games as NDJSON (with clocks and any existing Lichess analysis);
@@ -70,11 +70,22 @@ Games that already contain Lichess analysis keep their existing accuracy and ACP
 
 Reports are saved in this browser's IndexedDB. Reopen one with `?job=<report-id>` while it is still stored locally. Exports are generated in the browser as JSON or CSV downloads.
 
-### 2. Paste PGN
+### 2. Chess.com scan
+
+No token, password, or login is required. Enter a Chess.com username, choose a time control (default **All standard**) and how many games to scan. The browser:
+
+1. loads the public profile from `api.chess.com`;
+2. walks the player's monthly game archives newest-first, keeping standard rated games that match the chosen time class;
+3. parses the embedded PGN (clocks included) and analyses it with Stockfish WASM;
+4. scores each game and the overall sample.
+
+Chess.com's public API returns at most the last 12 months of archives in a scan. Daily games are mapped to correspondence speed, and unrated games are excluded unless you tick **Include unrated games**.
+
+### 3. Paste PGN
 
 No token required. Lichess-style `[%eval ...]` and `[%clk ...]` comments are used when present; otherwise the browser analyses with Stockfish WASM. Leave **Player to analyse** blank to analyse White in every game.
 
-### 3. Demo reports
+### 4. Demo reports
 
 Two precomputed reports ship with the app:
 
@@ -89,7 +100,7 @@ These exist so you can explore the UI and sanity-check the scoring without a tok
 
 The browser engine uses one single-threaded Stockfish WASM worker per logical CPU except one, capped at eight workers for browser stability. At the shallow-to-mid depths used here, several independent single-threaded searches finish a batch of games faster than one multi-threaded search.
 
-- **Workers:** `navigator.hardwareConcurrency - 1`, capped at 8.
+- **Workers:** `navigator.hardwareConcurrency - 1`, capped at 8. Devices reporting 4 GB of RAM or less are capped at 4 workers.
 - **Hash:** up to ~1 GB total across workers, split evenly, with a 16 MB minimum per worker.
 - **Defaults:** depth 12 and 12 sampled positions per game. Raise depth for stronger analysis; lower it for speed.
 - **Engine mode:** `Auto` uses local Stockfish, `Cloud` uses Lichess cloud evaluation (throttled and cached), and `Existing Lichess analysis only` skips local search.
@@ -161,6 +172,7 @@ src/
     chess-utils.ts         SAN/UCI helpers, eval/clock parsing, statistics
     engine.ts              Stockfish WASM worker wrapper and pool
     lichess.ts             Lichess profile/export client and cloud evaluator
+    chesscom.ts            Chess.com public API client
     jobs.ts                client-side job manager and progress
     storage.ts             IndexedDB report storage
     export.ts              browser JSON/CSV downloads
@@ -195,6 +207,10 @@ The legacy FastAPI app in `app/`, `static/`, and `run.ps1`/`run.bat` is kept for
 
 **PGN import skips games** — only standard chess is scored. Variants, games without moves, and games where the chosen player does not appear are skipped.
 
+**Chess.com says no games were found** — the account may have no public standard games in the last 12 months, the chosen time control may be empty, or unrated games may be excluded. Try **All standard**, tick **Include unrated games**, or raise the game count.
+
+**Chess.com returns HTTP 429** — the public API is rate-limiting you. Wait a minute and retry, or scan fewer games.
+
 **A saved report is missing** — reports live in this browser profile's IndexedDB. Clearing site data, using a private window, or switching browsers removes them.
 
 **Cloud eval is slow** — Lichess cloud eval only covers popular positions and is throttled to about one request per second. Use local Stockfish for large scans.
@@ -203,4 +219,4 @@ The legacy FastAPI app in `app/`, `static/`, and `run.ps1`/`run.bat` is kept for
 
 ## License and attribution
 
-KnightWatch is built on the public [Lichess API](https://lichess.org/api) and [Stockfish](https://stockfishchess.org/). Stockfish is GPLv3; the license text is bundled at `public/engine/Copying.txt`. The app is not affiliated with or endorsed by Lichess. Use it responsibly and respect Lichess's terms of service and rate limits.
+KnightWatch is built on the public [Lichess API](https://lichess.org/api), the [Chess.com public API](https://www.chess.com/news/view/published-data-api), and [Stockfish](https://stockfishchess.org/). Stockfish is GPLv3; the license text is bundled at `public/engine/Copying.txt`. The app is not affiliated with or endorsed by Lichess or Chess.com. Use it responsibly and respect their terms of service and rate limits.

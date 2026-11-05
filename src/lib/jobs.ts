@@ -11,6 +11,12 @@ import {
 } from "./analysis";
 import { moveAsDict, normalizeName } from "./chess-utils";
 import {
+  ChessComError,
+  chessComSpeed,
+  fetchChessComGames,
+  getChessComProfile,
+} from "./chesscom";
+import {
   StockfishPool,
   getEnginePool,
   isEnginePoolReady,
@@ -88,6 +94,14 @@ export class ClientJobManager {
     return id;
   }
 
+  createChessComJob(params: Record<string, any>): string {
+    const id = randomId();
+    const publicParams: Record<string, any> = { ...params };
+    const job = this.newJob(id, "chesscom", publicParams);
+    void this.run(job);
+    return id;
+  }
+
   get(jobId: string): JobSnapshot | null {
     const job = this.jobs.get(jobId);
     return job ? this.snapshot(job) : null;
@@ -125,7 +139,7 @@ export class ClientJobManager {
 
   // ------------------------------------------------------------- internals
 
-  private newJob(id: string, kind: "lichess" | "pgn", params: Record<string, any>): InternalJob {
+  private newJob(id: string, kind: "lichess" | "chesscom" | "pgn", params: Record<string, any>): InternalJob {
     const job: InternalJob = {
       id,
       kind,
@@ -169,13 +183,17 @@ export class ClientJobManager {
     job.started_at = nowIso();
     try {
       if (job.kind === "pgn") await this.runPgn(job);
+      else if (job.kind === "chesscom") await this.runChessCom(job);
       else await this.runLichess(job);
     } catch (error) {
       if (error instanceof JobCancelled) {
         this.setStatus(job, "cancelled");
         this.log(job, "Scan cancelled.");
-      } else if (error instanceof LichessError) {
+      } else if (error instanceof LichessError || error instanceof ChessComError) {
         this.fail(job, error.message, error.hint);
+      } else if (job.cancel) {
+        this.setStatus(job, "cancelled");
+        this.log(job, "Scan cancelled.");
       } else {
         this.fail(
           job,
@@ -261,6 +279,94 @@ export class ClientJobManager {
     }
     this.log(job, `Downloaded ${rawGames.length} games.`);
     await this.analyzeGames(job, rawGames, profile, false, profile.username || username);
+  }
+
+  private async runChessCom(job: InternalJob): Promise<void> {
+    const params = job.params;
+    const username = String(params.username || "").trim();
+    const maxGames = intOrZero(params.max_games) || 50;
+    const timeClass = String(params.time_class || "all").toLowerCase();
+    const includeUnrated = Boolean(params.include_unrated);
+
+    this.phase(job, "profile", 2, "Loading Chess.com profile…");
+    const controller = new AbortController();
+    job.controller = controller;
+    const ccProfile = await getChessComProfile(username, controller.signal);
+    if (job.cancel) throw new JobCancelled();
+
+    const profile: Profile = {
+      username: ccProfile.username || username,
+      id: String(ccProfile.player_id ?? "chesscom"),
+      title: ccProfile.title || null,
+      url: ccProfile.url || `https://www.chess.com/member/${encodeURIComponent(username)}`,
+      perfs: {},
+      counts: { all: 0 },
+    };
+    job.profile = profile;
+    job.progress.total_hint = maxGames;
+    this.log(job, `Loaded ${profile.username}${ccProfile.title ? ` (${ccProfile.title})` : ""}.`);
+
+    // Warm the engine while the archives download so the first scan does not
+    // stall at "Preparing analysis…".
+    const requestedEngine = String(params.engine || "auto").toLowerCase();
+    if (requestedEngine === "auto" || requestedEngine === "stockfish") {
+      void getEnginePool().catch(() => undefined);
+    }
+
+    this.phase(job, "fetching", 5, "Downloading games from Chess.com…");
+    const result = await fetchChessComGames({
+      username,
+      maxGames,
+      timeClass,
+      includeUnrated,
+      signal: controller.signal,
+      onProgress: (found, months) => {
+        this.progressFetch(job, found, maxGames);
+        this.log(
+          job,
+          `Found ${found} matching game${found === 1 ? "" : "s"} across ${months} month${months === 1 ? "" : "s"}…`,
+        );
+      },
+    });
+    if (job.cancel) throw new JobCancelled();
+
+    if (result.warning) {
+      this.log(job, result.warning);
+      if (!Array.isArray(job.params.warnings)) job.params.warnings = [];
+      job.params.warnings.push(result.warning);
+    }
+
+    // Chess.com returns JSON games with an embedded PGN. Parse each one and
+    // let its time_class override the PGN-derived speed (notably daily games).
+    const games: GameRecord[] = [];
+    const seen = new Set<string>();
+    for (const raw of result.games) {
+      if (job.cancel) throw new JobCancelled();
+      const parsed = parsePgnGames(String(raw.pgn || ""), 1);
+      if (!parsed.length) continue;
+      const game = parsed[0];
+      const speed = chessComSpeed(String(raw.time_class || "")) || game.speed;
+      game.speed = speed;
+      game.perf = speed;
+      if (raw.url) {
+        game.url = String(raw.url);
+        const tail = game.url.replace(/\/+$/, "").split("/").filter(Boolean);
+        if (tail.length) game.id = tail[tail.length - 1];
+      }
+      if (seen.has(game.id)) continue;
+      seen.add(game.id);
+      games.push(game);
+    }
+
+    if (!games.length) {
+      throw new ChessComError("No matching Chess.com games were found.", {
+        hint: "Try another time control, include unrated games, or scan an account with recent public games.",
+      });
+    }
+    profile.counts = { all: games.length };
+    job.progress.total_hint = games.length;
+    this.log(job, `Downloaded ${games.length} games from Chess.com.`);
+    await this.analyzeGames(job, games, profile, true, profile.username || username);
   }
 
   private async runPgn(job: InternalJob): Promise<void> {
