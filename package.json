@@ -1,0 +1,30 @@
+{
+  "name": "knightwatch-web",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Client-side Lichess fair-play scanner powered by Stockfish WASM",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "tsc --noEmit",
+    "verify": "tsx scripts/verify-analysis.ts"
+  },
+  "dependencies": {
+    "chess.js": "^1.4.0",
+    "idb-keyval": "^6.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.5"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

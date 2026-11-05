@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Runtime data (reports, eval cache)
+data/reports/
+data/calibration/
+data/cache.sqlite3
+data/*.json.tmp
+
+# Downloaded engine binaries
+engine/
+*.zip
+
+# Node / Vite
+node_modules/
+dist/
+.vercel/
+npm-debug.log*
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local environment
+.env
