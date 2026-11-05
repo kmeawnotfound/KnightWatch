@@ -12,8 +12,8 @@ data/calibration/
 data/cache.sqlite3
 data/*.json.tmp
 
-# Downloaded engine binaries
-engine/
+# Downloaded native engine binaries (root only; public/engine holds the WASM build)
+/engine/
 *.zip
 
 # Node / Vite
