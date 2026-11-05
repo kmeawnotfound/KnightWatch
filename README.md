@@ -42,9 +42,9 @@ The only runtime network calls are direct browser requests to `lichess.org` (pro
 
 ---
 
-## Lichess API token
+## Lichess API token (optional)
 
-Lichess requires a personal API token for the full game-export endpoint (`/api/games/user/{username}`). Anonymous requests return `404`.
+The Lichess scan works **without a token**. The public game-export endpoint (`/api/games/user/{username}`) allows anonymous requests at 20 games per second, which is enough for most scans. Adding a personal token raises the limit to 30 games per second.
 
 1. Open <https://lichess.org/account/oauth/token>.
 2. Click **Create a token**, give it a name such as `KnightWatch`.
@@ -59,7 +59,7 @@ The token is held only in this tab's JavaScript memory for the duration of the s
 
 ### 1. Lichess scan
 
-Enter a username and token, pick a time control and game count, and start the scan. **All standard** is the default time control; bullet, blitz, rapid, classical, UltraBullet, and correspondence are also available. The browser:
+Enter a username, pick a time control and game count, and start the scan. A token is optional. **All standard** is the default time control; bullet, blitz, rapid, classical, UltraBullet, and correspondence are also available. The browser:
 
 1. loads the player's public profile and rating from Lichess;
 2. streams their games as NDJSON (with clocks and any existing Lichess analysis);
@@ -197,7 +197,7 @@ The legacy FastAPI app in `app/`, `static/`, and `run.ps1`/`run.bat` is kept for
 
 ## Troubleshooting
 
-**"Lichess requires a personal API token"** — create one at <https://lichess.org/account/oauth/token>. No scopes are needed. This is a Lichess policy change, not a bug.
+**"Lichess rejected the API token"** — check the token, or clear the token field and scan anonymously. Anonymous exports are rate-limited but work without an account.
 
 **The engine pill says WebAssembly is unavailable** — use a current version of Chrome, Edge, Firefox, or Safari. The WASM assets must be served from the same origin.
 

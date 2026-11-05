@@ -354,16 +354,6 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
       showError({ message: "Enter a Lichess username." }, "Missing username");
       return;
     }
-    if (!token) {
-      showError(
-        {
-          message: "A Lichess personal API token is required to download the full game history.",
-          hint: "Create a free token at https://lichess.org/account/oauth/token (no scopes needed), then paste it above. It is only kept in this tab's memory.",
-        },
-        "Token required"
-      );
-      return;
-    }
     const payload = {
       username,
       perf: $("#perf").value,
@@ -374,7 +364,7 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
       samples: Number($("#samples").value),
       reanalyze: $("#reanalyze").checked,
     };
-    await startJob("lichess", payload, token, els.scanSubmit);
+    await startJob("lichess", payload, token || null, els.scanSubmit);
   }
 
   async function submitChessCom(event) {

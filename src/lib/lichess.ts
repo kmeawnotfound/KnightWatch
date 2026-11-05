@@ -63,19 +63,10 @@ export function errorForStatus(status: number, token: string | null, username?: 
     });
   }
   if (status === 404) {
-    if (!token) {
-      return new LichessError(
-        "Lichess requires a personal API token to export a player's full game history.",
-        {
-          status,
-          hint: `Create a free token at ${TOKEN_URL} (no scopes needed). Anonymous game export now returns 404.`,
-        },
-      );
-    }
-    return new LichessError(
-      `Lichess user '${username || "?"}' was not found, or the token cannot access it.`,
-      { status, hint: "Check the spelling of the username." },
-    );
+    return new LichessError(`Lichess user '${username || "?"}' was not found.`, {
+      status,
+      hint: "Check the spelling of the username.",
+    });
   }
   if (status === 429) {
     return new LichessError("Lichess rate limit reached.", {

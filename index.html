@@ -58,22 +58,22 @@
               <input id="username" name="username" type="text" placeholder="e.g. DrNykterstein" maxlength="60" required />
             </div>
             <div class="field">
-              <label for="token">Personal API token <span class="label-note">required for full history</span></label>
+              <label for="token">Personal API token <span class="label-note">optional</span></label>
               <div class="input-with-action">
-                <input id="token" name="token" type="password" placeholder="lip_…" autocomplete="off" spellcheck="false" />
+                <input id="token" name="token" type="password" placeholder="lip_… (optional)" autocomplete="off" spellcheck="false" />
                 <button type="button" class="btn tiny" id="toggle-token" aria-label="Show token">Show</button>
                 <button type="button" class="btn tiny" id="check-token">Test</button>
               </div>
-              <span class="field-hint" id="token-status">Kept in this tab's memory only. Sent directly to Lichess and never stored.</span>
+              <span class="field-hint" id="token-status">Optional. Leave blank to stream public games anonymously (slower rate limit). The token stays in this tab's memory only.</span>
             </div>
           </div>
 
           <details class="help-box">
-            <summary>How to create a token (free, no scopes needed)</summary>
+            <summary>Why add a token? (free, no scopes needed)</summary>
             <ol>
               <li>Open <a href="https://lichess.org/account/oauth/token" target="_blank" rel="noreferrer">lichess.org/account/oauth/token</a>.</li>
               <li>Click <strong>Create a token</strong>, give it any name (e.g. KnightWatch), leave all scopes unchecked.</li>
-              <li>Copy the token and paste it above. Lichess now requires a token for the full game-export endpoint.</li>
+              <li>Copy the token and paste it above. A token raises the export rate limit from 20 to 30 games per second.</li>
             </ol>
           </details>
 
