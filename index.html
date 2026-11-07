@@ -52,30 +52,13 @@
 
       <div id="pane-lichess" class="tab-pane active">
         <form id="scan-form" autocomplete="off">
-          <div class="form-row two">
+          <div class="form-row">
             <div class="field">
               <label for="username">Lichess username</label>
               <input id="username" name="username" type="text" placeholder="e.g. DrNykterstein" maxlength="60" required />
-            </div>
-            <div class="field">
-              <label for="token">Personal API token <span class="label-note">optional</span></label>
-              <div class="input-with-action">
-                <input id="token" name="token" type="password" placeholder="lip_… (optional)" autocomplete="off" spellcheck="false" />
-                <button type="button" class="btn tiny" id="toggle-token" aria-label="Show token">Show</button>
-                <button type="button" class="btn tiny" id="check-token">Test</button>
-              </div>
-              <span class="field-hint" id="token-status">Optional. Leave blank to stream public games anonymously (slower rate limit). The token stays in this tab's memory only.</span>
+              <span class="field-hint">Public games are streamed anonymously. No account or login is required.</span>
             </div>
           </div>
-
-          <details class="help-box">
-            <summary>Why add a token? (free, no scopes needed)</summary>
-            <ol>
-              <li>Open <a href="https://lichess.org/account/oauth/token" target="_blank" rel="noreferrer">lichess.org/account/oauth/token</a>.</li>
-              <li>Click <strong>Create a token</strong>, give it any name (e.g. KnightWatch), leave all scopes unchecked.</li>
-              <li>Copy the token and paste it above. A token raises the export rate limit from 20 to 30 games per second.</li>
-            </ol>
-          </details>
 
           <div class="form-row five">
             <div class="field">
@@ -149,7 +132,7 @@
             <div class="field">
               <label for="cc-username">Chess.com username</label>
               <input id="cc-username" type="text" placeholder="e.g. Hikaru" maxlength="60" required />
-              <span class="field-hint">Uses Chess.com's public API. No token or password is needed.</span>
+              <span class="field-hint">Uses Chess.com's public API. No account or login is needed.</span>
             </div>
             <div class="field">
               <label for="cc-perf">Time control</label>
@@ -235,7 +218,7 @@
           <div class="field">
             <label for="pgn-text">PGN</label>
             <textarea id="pgn-text" rows="8" placeholder="[Event &quot;...&quot;]&#10;[White &quot;...&quot;]&#10;[Black &quot;...&quot;]&#10;...&#10;&#10;1. e4 e5 2. Nf3 Nc6 ..."></textarea>
-            <span class="field-hint">Lichess-style <code>[%eval]</code> and <code>[%clk]</code> comments are used when present. No token needed.</span>
+            <span class="field-hint">Lichess-style <code>[%eval]</code> and <code>[%clk]</code> comments are used when present. No account needed.</span>
           </div>
           <div class="form-row three">
             <div class="field">

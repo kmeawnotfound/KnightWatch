@@ -1,7 +1,7 @@
 /**
  * Chess.com public API client.
  *
- * Chess.com exposes read-only, CORS-enabled endpoints. No token is required
+ * Chess.com exposes read-only, CORS-enabled endpoints. No credentials are required
  * and nothing is sent anywhere except directly to api.chess.com.
  */
 

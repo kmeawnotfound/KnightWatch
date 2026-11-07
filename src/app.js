@@ -2,7 +2,6 @@ import "./styles.css";
 
 import { ClientJobManager } from "./lib/jobs.js";
 import { closeEnginePool, defaultWorkerCount, getEnginePool } from "./lib/engine.js";
-import { checkToken as checkLichessToken } from "./lib/lichess.js";
 import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } from "./lib/export.js";
 
 (() => {
@@ -245,8 +244,6 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
     els.scanForm.addEventListener("focusin", warmEngine, { once: true });
     els.ccForm.addEventListener("focusin", warmEngine, { once: true });
     els.pgnForm.addEventListener("focusin", warmEngine, { once: true });
-    $("#toggle-token").addEventListener("click", toggleToken);
-    $("#check-token").addEventListener("click", checkToken);
     $("#error-close").addEventListener("click", clearError);
     els.cancelJob.addEventListener("click", cancelJob);
     $("#new-scan").addEventListener("click", newScan);
@@ -305,51 +302,12 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
     });
   }
 
-  function toggleToken() {
-    const input = $("#token");
-    const button = $("#toggle-token");
-    if (input.type === "password") {
-      input.type = "text";
-      button.textContent = "Hide";
-    } else {
-      input.type = "password";
-      button.textContent = "Show";
-    }
-  }
-
-  async function checkToken() {
-    const token = $("#token").value.trim();
-    const status = $("#token-status");
-    if (!token) {
-      status.textContent = "Paste a token first.";
-      status.style.color = "var(--amber)";
-      return;
-    }
-    const button = $("#check-token");
-    button.disabled = true;
-    status.textContent = "Checking…";
-    status.style.color = "var(--muted)";
-    try {
-      const account = await checkLichessToken(token);
-      const name = account.username || "account";
-      status.textContent = `Connected as ${name}. Token stays in this tab.`;
-      status.style.color = "var(--green)";
-      toast(`Token works — ${name}`);
-    } catch (error) {
-      status.textContent = error.message + (error.hint ? ` ${error.hint}` : "");
-      status.style.color = "var(--red)";
-    } finally {
-      button.disabled = false;
-    }
-  }
-
   // ------------------------------------------------------------------- scan
 
   async function submitScan(event) {
     event.preventDefault();
     clearError();
     const username = $("#username").value.trim();
-    const token = $("#token").value.trim();
     if (!username) {
       showError({ message: "Enter a Lichess username." }, "Missing username");
       return;
@@ -364,7 +322,7 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
       samples: Number($("#samples").value),
       reanalyze: $("#reanalyze").checked,
     };
-    await startJob("lichess", payload, token || null, els.scanSubmit);
+    await startJob("lichess", payload, els.scanSubmit);
   }
 
   async function submitChessCom(event) {
@@ -384,7 +342,7 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
       depth: Number($("#cc-depth").value),
       samples: Number($("#cc-samples").value),
     };
-    await startJob("chesscom", payload, null, els.ccSubmit);
+    await startJob("chesscom", payload, els.ccSubmit);
   }
 
   async function submitPgn(event) {
@@ -403,10 +361,10 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
       depth: Number($("#pgn-depth").value),
       samples: Number($("#pgn-samples").value),
     };
-    await startJob("pgn", payload, null, els.pgnSubmit);
+    await startJob("pgn", payload, els.pgnSubmit);
   }
 
-  async function startJob(kind, payload, token, button) {
+  async function startJob(kind, payload, button) {
     clearJobParam();
     state.demo = false;
     state.finished = false;
@@ -423,7 +381,7 @@ import { downloadCsv as downloadReportCsv, downloadJson as downloadReportJson } 
           ? jobs.createPgnJob(payload)
           : kind === "chesscom"
             ? jobs.createChessComJob(payload)
-            : jobs.createLichessJob(payload, token);
+            : jobs.createLichessJob(payload);
       state.finished = false;
       pollJob();
       state.pollTimer = setInterval(pollJob, 850);

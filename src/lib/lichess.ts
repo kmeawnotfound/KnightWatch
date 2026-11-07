@@ -2,7 +2,6 @@ import { pyRound } from "./chess-utils";
 import type { Profile } from "./types";
 
 const BASE = "https://lichess.org";
-const TOKEN_URL = "https://lichess.org/account/oauth/token";
 
 const GAME_KEYS = [
   "id",
@@ -42,24 +41,21 @@ export class LichessError extends Error {
   }
 }
 
-function authHeaders(token: string | null | undefined, accept: string): Record<string, string> {
-  const headers: Record<string, string> = { Accept: accept };
-  const clean = (token || "").trim();
-  if (clean) headers.Authorization = `Bearer ${clean}`;
-  return headers;
+function acceptHeaders(accept: string): Record<string, string> {
+  return { Accept: accept };
 }
 
-export function errorForStatus(status: number, token: string | null, username?: string): LichessError {
+export function errorForStatus(status: number, username?: string): LichessError {
   if (status === 401) {
-    return new LichessError("Lichess rejected the API token.", {
+    return new LichessError("Lichess rejected the request.", {
       status,
-      hint: `Create a personal token at ${TOKEN_URL} (no scopes are required) and paste it again.`,
+      hint: "Try again later.",
     });
   }
   if (status === 403) {
     return new LichessError("Lichess refused access to this resource.", {
       status,
-      hint: "Check that the token is valid and not restricted.",
+      hint: "Try again later or scan fewer games.",
     });
   }
   if (status === 404) {
@@ -77,16 +73,16 @@ export function errorForStatus(status: number, token: string | null, username?: 
   return new LichessError(`Lichess returned HTTP ${status}.`, { status });
 }
 
-async function requestJson(url: string, token: string | null): Promise<any> {
+async function requestJson(url: string): Promise<any> {
   let response: Response;
   try {
-    response = await fetch(url, { headers: authHeaders(token, "application/json") });
+    response = await fetch(url, { headers: acceptHeaders("application/json") });
   } catch (error) {
     throw new LichessError(`Could not reach Lichess: ${(error as Error).message}`, {
       hint: "Check your connection and try again.",
     });
   }
-  if (!response.ok) throw errorForStatus(response.status, token);
+  if (!response.ok) throw errorForStatus(response.status);
   try {
     return await response.json();
   } catch {
@@ -94,38 +90,13 @@ async function requestJson(url: string, token: string | null): Promise<any> {
   }
 }
 
-export interface AccountInfo {
-  id: string | null;
-  username: string | null;
-  title: string | null;
-  patron: boolean;
-  scopes: string[];
-}
-
-export async function checkToken(token: string): Promise<AccountInfo> {
-  const clean = (token || "").trim();
-  if (!clean) {
-    throw new LichessError("No API token supplied.", {
-      hint: `Create one at ${TOKEN_URL} (no scopes required).`,
-    });
-  }
-  const data = await requestJson(`${BASE}/api/account`, clean);
-  return {
-    id: data.id ?? null,
-    username: data.username ?? null,
-    title: data.title ?? null,
-    patron: Boolean(data.patron),
-    scopes: data.scopes || [],
-  };
-}
-
-export async function getProfile(username: string, token: string | null = null): Promise<Profile> {
+export async function getProfile(username: string): Promise<Profile> {
   const name = (username || "").trim();
   if (!name) throw new LichessError("Enter a Lichess username.");
   let response: Response;
   try {
     response = await fetch(`${BASE}/api/user/${encodeURIComponent(name)}`, {
-      headers: authHeaders(token, "application/json"),
+      headers: acceptHeaders("application/json"),
     });
   } catch (error) {
     throw new LichessError(`Could not reach Lichess: ${(error as Error).message}`, {
@@ -138,7 +109,7 @@ export async function getProfile(username: string, token: string | null = null):
       hint: "Check the spelling of the username.",
     });
   }
-  if (!response.ok) throw errorForStatus(response.status, token, name);
+  if (!response.ok) throw errorForStatus(response.status, name);
   let raw: any;
   try {
     raw = await response.json();
@@ -178,7 +149,6 @@ export interface IterGamesOptions {
   maxGames?: number;
   perf?: string;
   includeUnrated?: boolean;
-  token?: string | null;
   totalHint?: number | null;
   signal?: AbortSignal | null;
   cancelCheck?: (() => boolean) | null;
@@ -203,8 +173,8 @@ function trimGame(raw: Record<string, any>): Record<string, any> {
 /**
  * Stream a user's games as NDJSON using the browser fetch API.
  *
- * Lichess allows CORS on this endpoint for authenticated requests. We never set
- * User-Agent (browsers forbid it) and the token is only used for this request.
+ * Lichess allows anonymous CORS requests on this endpoint. We never set
+ * User-Agent (browsers forbid it).
  */
 export async function iterGames(
   username: string,
@@ -214,7 +184,6 @@ export async function iterGames(
     maxGames = 50,
     perf = "all",
     includeUnrated = false,
-    token = null,
     totalHint = null,
     signal = null,
     cancelCheck = null,
@@ -238,7 +207,7 @@ export async function iterGames(
   let response: Response;
   try {
     response = await fetch(url, {
-      headers: authHeaders(token, "application/x-ndjson"),
+      headers: acceptHeaders("application/x-ndjson"),
       signal: signal || undefined,
     });
   } catch (error) {
@@ -247,7 +216,7 @@ export async function iterGames(
       hint: "Check your connection and try again.",
     });
   }
-  if (!response.ok) throw errorForStatus(response.status, token, username);
+  if (!response.ok) throw errorForStatus(response.status, username);
   if (!response.body) {
     throw new LichessError("This browser cannot stream the Lichess export.", {
       hint: "Try a current version of Chrome, Edge, Firefox or Safari.",

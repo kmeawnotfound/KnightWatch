@@ -2,7 +2,7 @@
 
 A client-side fair-play scanner for Lichess and Chess.com games. It downloads a player's game history (or accepts a PGN), evaluates positions with **Stockfish 19 Lite compiled to WebAssembly**, and compares the player's accuracy, centipawn loss, move timing, and results against rating-appropriate baselines.
 
-**Everything runs in the browser.** There is no application server, no server-side token handling, and no server-side report storage. The deployed app is a static Vite build that can be hosted on Vercel.
+**Everything runs in the browser.** There is no application server, no server-side credentials, and no server-side report storage. The deployed app is a static Vite build that can be hosted on Vercel.
 
 **It produces a statistical signal, not a verdict.** Strong players, fast time controls, small samples, and unusual openings can all produce high scores. No score here is proof of cheating, and the app is not affiliated with Lichess or Chess.com.
 
@@ -42,24 +42,11 @@ The only runtime network calls are direct browser requests to `lichess.org` (pro
 
 ---
 
-## Lichess API token (optional)
-
-The Lichess scan works **without a token**. The public game-export endpoint (`/api/games/user/{username}`) allows anonymous requests at 20 games per second, which is enough for most scans. Adding a personal token raises the limit to 30 games per second.
-
-1. Open <https://lichess.org/account/oauth/token>.
-2. Click **Create a token**, give it a name such as `KnightWatch`.
-3. Leave every scope unchecked — the app only needs to read the account and its games.
-4. Paste the token into the form and press **Test** if you want to confirm it.
-
-The token is held only in this tab's JavaScript memory for the duration of the scan. It is sent directly to Lichess in the `Authorization` header, is removed from the job parameters, and is never written to IndexedDB, exports, logs, or `localStorage`. Reloading the page clears it.
-
----
-
 ## Four ways to use it
 
 ### 1. Lichess scan
 
-Enter a username, pick a time control and game count, and start the scan. A token is optional. **All standard** is the default time control; bullet, blitz, rapid, classical, UltraBullet, and correspondence are also available. The browser:
+Enter a username, pick a time control and game count, and start the scan. No account or login is required. **All standard** is the default time control; bullet, blitz, rapid, classical, UltraBullet, and correspondence are also available. The browser:
 
 1. loads the player's public profile and rating from Lichess;
 2. streams their games as NDJSON (with clocks and any existing Lichess analysis);
@@ -72,7 +59,7 @@ Reports are saved in this browser's IndexedDB. Reopen one with `?job=<report-id>
 
 ### 2. Chess.com scan
 
-No token, password, or login is required. Enter a Chess.com username, choose a time control (default **All standard**) and how many games to scan. The browser:
+No account, password, or login is required. Enter a Chess.com username, choose a time control (default **All standard**) and how many games to scan. The browser:
 
 1. loads the public profile from `api.chess.com`;
 2. walks the player's monthly game archives newest-first, keeping standard rated games that match the chosen time class;
@@ -83,7 +70,7 @@ Chess.com's public API returns at most the last 12 months of archives in a scan.
 
 ### 3. Paste PGN
 
-No token required. Lichess-style `[%eval ...]` and `[%clk ...]` comments are used when present; otherwise the browser analyses with Stockfish WASM. Leave **Player to analyse** blank to analyse White in every game.
+No account required. Lichess-style `[%eval ...]` and `[%clk ...]` comments are used when present; otherwise the browser analyses with Stockfish WASM. Leave **Player to analyse** blank to analyse White in every game.
 
 ### 4. Demo reports
 
@@ -92,7 +79,7 @@ Two precomputed reports ship with the app:
 - **Clean control** — eight real classical games from a public Lichess broadcast. Scores **22 / 100 (Low signal)**.
 - **Synthetic suspect** — six generated games where Black plays strong engine moves in under two seconds. Scores **89 / 100 (Very high signal)**. The player is not real.
 
-These exist so you can explore the UI and sanity-check the scoring without a token.
+These exist so you can explore the UI and sanity-check the scoring without an account.
 
 ---
 
@@ -197,7 +184,7 @@ The legacy FastAPI app in `app/`, `static/`, and `run.ps1`/`run.bat` is kept for
 
 ## Troubleshooting
 
-**"Lichess rejected the API token"** — check the token, or clear the token field and scan anonymously. Anonymous exports are rate-limited but work without an account.
+**A Lichess scan is rate-limited** — anonymous exports stream at 20 games per second. Wait a minute and retry, or scan fewer games.
 
 **The engine pill says WebAssembly is unavailable** — use a current version of Chrome, Edge, Firefox, or Safari. The WASM assets must be served from the same origin.
 

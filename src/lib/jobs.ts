@@ -64,7 +64,6 @@ function colorOf(game: GameRecord, name: string | null | undefined): Color | nul
 
 interface InternalJob extends JobSnapshot {
   report: Report | null;
-  token: string | null;
   pgn: string | null;
   cancel: boolean;
   controller: AbortController | null;
@@ -73,12 +72,9 @@ interface InternalJob extends JobSnapshot {
 export class ClientJobManager {
   private jobs = new Map<string, InternalJob>();
 
-  createLichessJob(params: Record<string, any>, token: string | null): string {
+  createLichessJob(params: Record<string, any>): string {
     const id = randomId();
-    const publicParams: Record<string, any> = { ...params };
-    delete publicParams.token;
-    const job = this.newJob(id, "lichess", publicParams);
-    job.token = (token || "").trim() || null;
+    const job = this.newJob(id, "lichess", { ...params });
     void this.run(job);
     return id;
   }
@@ -165,7 +161,6 @@ export class ClientJobManager {
       report_ready: false,
       summary: null,
       report: null,
-      token: null,
       pgn: null,
       cancel: false,
       controller: null,
@@ -202,7 +197,6 @@ export class ClientJobManager {
         );
       }
     } finally {
-      job.token = null;
       job.pgn = null;
       job.controller = null;
       releaseEnginePool();
@@ -212,14 +206,13 @@ export class ClientJobManager {
   private async runLichess(job: InternalJob): Promise<void> {
     const params = job.params;
     const username = String(params.username || "").trim();
-    const token = job.token;
     const maxGames =
       params.max_games === 0 ? 0 : intOrZero(params.max_games) || 50;
     const perf = String(params.perf || "all");
     const includeUnrated = Boolean(params.include_unrated);
 
     this.phase(job, "profile", 2, "Loading Lichess profile…");
-    const profile = await getProfile(username, token);
+    const profile = await getProfile(username);
     job.profile = profile;
     this.log(job, `Loaded ${profile.username} (${profile.title || "player"}).`);
 
@@ -253,7 +246,6 @@ export class ClientJobManager {
       maxGames,
       perf,
       includeUnrated,
-      token,
       totalHint,
       signal: controller.signal,
       cancelCheck: () => job.cancel,
@@ -274,7 +266,7 @@ export class ClientJobManager {
     }
     if (!rawGames.length) {
       throw new LichessError("No games were returned.", {
-        hint: "Try a different time control or include unrated games. If the account has games, make sure the token is valid.",
+        hint: "Try a different time control or include unrated games.",
       });
     }
     this.log(job, `Downloaded ${rawGames.length} games.`);
