@@ -1,13 +1,35 @@
 import type { GameMetrics } from "../lib/types";
-import { renderBoard } from "./board";
+import {
+  boardSnapshot,
+  initBoard,
+  resetBoardVariation,
+  setBoardFlipped,
+  showGamePosition,
+  undoBoardMove,
+} from "./board";
 import { drawEvalChart } from "./chart";
 import { byId, clearNode, el, setText } from "./dom";
 import { fmtInt, fmtNumber, fmtPawns, fmtPct, fmtTime, titleCase } from "./format";
 import { state } from "./state";
 import { gameMoves, moveNumber, type MoveView } from "./view-types";
 
+let boardBound = false;
+
+function ensureBoard(): void {
+  if (boardBound) return;
+  boardBound = true;
+  initBoard((result) => {
+    if (result === "matched") {
+      setBoardIndex(state.boardIndex + 1);
+    } else {
+      refreshBoardStatus();
+    }
+  });
+}
+
 export function openGame(game: GameMetrics, ply?: number): void {
   if (!game) return;
+  ensureBoard();
   state.selectedGame = game;
   const moves = gameMoves(game);
   if (typeof ply === "number") {
@@ -64,6 +86,7 @@ export function openGame(game: GameMetrics, ply?: number): void {
   byId("game-modal").classList.remove("hidden");
   document.body.style.overflow = "hidden";
   window.setTimeout(() => byId("modal-close").focus(), 40);
+  window.requestAnimationFrame(() => highlightMove());
 }
 
 export function closeModal(): void {
@@ -74,7 +97,7 @@ export function closeModal(): void {
 
 export function toggleBoardFlip(): void {
   state.boardFlipped = !state.boardFlipped;
-  setBoardIndex(state.boardIndex);
+  setBoardFlipped(state.boardFlipped);
 }
 
 export function setBoardIndex(index: number): void {
@@ -82,21 +105,48 @@ export function setBoardIndex(index: number): void {
   if (!game) return;
   const moves = gameMoves(game);
   state.boardIndex = Math.max(0, Math.min(index, moves.length));
-  renderBoard(
-    byId("board"),
-    byId<SVGSVGElement>("board-arrows"),
-    game,
-    state.boardIndex,
-    state.boardFlipped,
-  );
+  showGamePosition(game, state.boardIndex, state.boardFlipped);
   updateBoardInfo(moves);
   highlightMove();
 }
 
+export function undoBoard(): void {
+  undoBoardMove();
+}
+
+export function resetBoard(): void {
+  resetBoardVariation();
+}
+
+function refreshBoardStatus(): void {
+  const game = state.selectedGame;
+  if (!game) return;
+  updateBoardInfo(gameMoves(game));
+  highlightMove();
+}
+
 function updateBoardInfo(moves: MoveView[]): void {
-  const index = state.boardIndex;
+  const snap = boardSnapshot();
   const label = byId("board-move");
   const evalNode = byId("board-eval");
+  byId("board-variation").classList.toggle("hidden", !snap.variation);
+  byId<HTMLButtonElement>("board-undo").disabled = !snap.variation;
+  byId<HTMLButtonElement>("board-reset").disabled = !snap.variation;
+
+  if (snap.variation) {
+    const last = snap.history[snap.history.length - 1];
+    label.textContent = last ? `Variation · ${last}` : "Variation";
+    const bits = [
+      `${snap.history.length} free move${snap.history.length === 1 ? "" : "s"}`,
+      "not part of the game",
+    ];
+    if (snap.check) bits.push("check");
+    if (snap.gameOver) bits.push("game over");
+    evalNode.textContent = bits.join(" · ");
+    return;
+  }
+
+  const index = state.boardIndex;
   if (index === 0) {
     label.textContent = "Start position";
   } else {
@@ -117,13 +167,33 @@ function updateBoardInfo(moves: MoveView[]): void {
 }
 
 function highlightMove(): void {
-  const cells = Array.from(document.querySelectorAll<HTMLElement>("#moves-wrap .move"));
+  const wrap = byId("moves-wrap");
+  const variation = boardSnapshot().variation;
   const target = String(state.boardIndex - 1);
-  cells.forEach((cell) => {
-    const active = cell.dataset.index === target;
-    cell.classList.toggle("active", active);
-    if (active) cell.scrollIntoView({ block: "nearest" });
+  let active: HTMLElement | null = null;
+  wrap.querySelectorAll<HTMLElement>(".move").forEach((cell) => {
+    const isActive = !variation && cell.dataset.index === target;
+    cell.classList.toggle("active", isActive);
+    if (isActive) active = cell;
   });
+  if (active) scrollWithin(wrap, active);
+}
+
+/**
+ * Scroll only the move list, never the modal or the page. `scrollIntoView`
+ * walks every scrollable ancestor, which used to push the board off-screen
+ * whenever the previous/next buttons were used.
+ */
+function scrollWithin(wrap: HTMLElement, cell: HTMLElement): void {
+  const wrapRect = wrap.getBoundingClientRect();
+  const cellRect = cell.getBoundingClientRect();
+  if (!wrapRect.height) return;
+  const pad = 10;
+  if (cellRect.top < wrapRect.top + pad) {
+    wrap.scrollTop -= wrapRect.top + pad - cellRect.top;
+  } else if (cellRect.bottom > wrapRect.bottom - pad) {
+    wrap.scrollTop += cellRect.bottom - (wrapRect.bottom - pad);
+  }
 }
 
 interface MoveSlot {

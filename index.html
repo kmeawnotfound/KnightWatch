@@ -477,6 +477,12 @@
           <div class="board-stage">
             <div class="board" id="board"></div>
             <svg class="board-arrows" id="board-arrows" viewBox="0 0 8 8" preserveAspectRatio="none" aria-hidden="true"></svg>
+            <div class="promotion-picker hidden" id="promotion-picker" role="group" aria-label="Choose promotion piece">
+              <button type="button" data-promotion="q" aria-label="Promote to queen">♛</button>
+              <button type="button" data-promotion="r" aria-label="Promote to rook">♜</button>
+              <button type="button" data-promotion="b" aria-label="Promote to bishop">♝</button>
+              <button type="button" data-promotion="n" aria-label="Promote to knight">♞</button>
+            </div>
           </div>
           <div class="board-side">
             <div class="board-controls">
@@ -485,16 +491,19 @@
               <button class="btn ghost tiny" id="board-next" type="button" aria-label="Next move">▶</button>
               <button class="btn ghost tiny" id="board-last" type="button" aria-label="Last move">⏭</button>
               <button class="btn ghost tiny" id="board-flip" type="button" aria-label="Flip board">⇅</button>
+              <button class="btn ghost tiny" id="board-undo" type="button" aria-label="Undo variation move" disabled>↶</button>
+              <button class="btn ghost tiny" id="board-reset" type="button" aria-label="Return to the game position" disabled>⤺</button>
             </div>
             <div class="board-info">
               <span id="board-move" class="board-move">Start position</span>
               <span id="board-eval" class="board-eval"></span>
+              <span id="board-variation" class="board-variation hidden">Variation</span>
             </div>
             <div class="board-legend">
               <span><i class="arrow-key played"></i> Played</span>
               <span><i class="arrow-key best"></i> Engine best</span>
             </div>
-            <p class="board-hint">Use ← → to step through the game. Click any move below to jump to it.</p>
+            <p class="board-hint">Drag a piece or tap two squares to try a move. Use ← → to step through the game; undo and reset appear when you explore a variation.</p>
           </div>
         </div>
         <div class="eval-wrap">

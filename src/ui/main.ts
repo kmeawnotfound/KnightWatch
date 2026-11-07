@@ -4,7 +4,7 @@ import { byId, $$ } from "./dom";
 import { disposeEngine, initEngineStatus, warmEngine } from "./engine-status";
 import { els } from "./els";
 import { compareSelected, closeLibrary, openLibrary } from "./library";
-import { closeModal, setBoardIndex, toggleBoardFlip } from "./modal";
+import { closeModal, resetBoard, setBoardIndex, toggleBoardFlip, undoBoard } from "./modal";
 import { cancelJob, newScan } from "./progress";
 import { renderGames } from "./games";
 import { loadDemo, loadJobReport, setTab, submitChessCom, submitPgn, submitScan } from "./scan";
@@ -86,6 +86,8 @@ function bindEvents(): void {
     if (state.selectedGame) setBoardIndex(gameMoves(state.selectedGame).length);
   });
   byId("board-flip").addEventListener("click", toggleBoardFlip);
+  byId("board-undo").addEventListener("click", undoBoard);
+  byId("board-reset").addEventListener("click", resetBoard);
 
   byId("open-library").addEventListener("click", () => void openLibrary());
   byId("library-close").addEventListener("click", closeLibrary);
