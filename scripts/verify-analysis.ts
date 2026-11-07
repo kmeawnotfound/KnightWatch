@@ -16,6 +16,8 @@ import {
   finalizeGames,
   parsePgnGames,
 } from "../src/lib/analysis";
+import { reportToHtml } from "../src/lib/export";
+import { criticalErrors, criticalFinds } from "../src/lib/highlights";
 import type { GameMetrics } from "../src/lib/types";
 
 function assert(condition: boolean, message: string): void {
@@ -82,6 +84,20 @@ function main(): void {
       demo.summary.metrics.acpl === m.acpl,
       "demo JSON ACPL agrees with the port",
     );
+
+    const html = reportToHtml(demo);
+    assert(html.includes("KnightWatch report"), "HTML export has a document title");
+    assert(html.includes("Low signal"), "HTML export contains the verdict");
+    assert(html.includes("not proof of cheating"), "HTML export carries the disclaimer");
+    assert(html.includes("Costly decisions"), "HTML export includes critical moments");
+    assert(criticalErrors(demo, 8).length > 0, "critical errors are found in the clean demo");
+
+    const suspectPath = path.resolve("public/demo_suspect.json");
+    if (fs.existsSync(suspectPath)) {
+      const suspect = JSON.parse(fs.readFileSync(suspectPath, "utf8"));
+      assert(suspect.summary.score === 89, "suspect demo still scores 89");
+      assert(criticalFinds(suspect, 8).length > 0, "critical finds are found in the suspect demo");
+    }
   }
 
   console.log("\nAll calibration checks passed.");

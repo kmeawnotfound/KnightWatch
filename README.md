@@ -55,7 +55,7 @@ Enter a username, pick a time control and game count, and start the scan. No acc
 
 Games that already contain Lichess analysis keep their existing accuracy and ACPL; the browser still samples positions locally to estimate top-move agreement. **Existing Lichess analysis only** skips local evaluation entirely.
 
-Reports are saved in this browser's IndexedDB. Reopen one with `?job=<report-id>` while it is still stored locally. Exports are generated in the browser as JSON or CSV downloads.
+Reports are saved in this browser's IndexedDB. Reopen one with `?job=<report-id>` while it is still stored locally, or from the **Saved reports** library. Exports are generated in the browser as JSON, CSV, or a self-contained HTML document.
 
 ### 2. Chess.com scan
 
@@ -80,6 +80,18 @@ Two precomputed reports ship with the app:
 - **Synthetic suspect** — six generated games where Black plays strong engine moves in under two seconds. Scores **89 / 100 (Very high signal)**. The player is not real.
 
 These exist so you can explore the UI and sanity-check the scoring without an account.
+
+---
+
+## Reviewing a report
+
+Every report includes a set of review tools, all running locally against the stored move data:
+
+- **Interactive board.** Open any game row to replay it on a chessboard with the played move and, when available, the engine's preferred move drawn as arrows. Step with the on-screen controls or the arrow keys, jump to any move in the move list, and flip the board. The evaluation, clock time, and judgment for the current move are shown beside the board.
+- **Critical moments.** Two shortlists rank the decisions that matter most: **Costly decisions** (largest centipawn losses, weighted toward tense positions) and **Fast engine matches** (engine-best moves played quickly in balanced positions). Clicking a row opens the board at that exact move.
+- **Think time vs position tension.** A scatter plot of the player's moves, with think time on a logarithmic axis and a "tension" score on the other (balanced positions rank higher than already-decided ones). Summary stats compare average time in tense versus clear positions, and **Instant strong moves** lists the fastest strong decisions in tense positions.
+- **Export and import.** Export the report as JSON (re-importable), CSV (per-game table), or a **self-contained HTML file** with the score, verdict, reasons, critical moments, and game table — no scripts, no external assets. Import a previously exported JSON report to load and store it again.
+- **Saved reports library.** The **Saved reports** button lists every report stored in this browser, with open, export, and delete actions. Select any two reports to compare them side by side: headline metrics plus per-component z-score deltas, so you can see what changed between scans.
 
 ---
 
@@ -133,7 +145,7 @@ The client-side analysis port is checked against the Python implementation with:
 npm run verify
 ```
 
-It parses the first eight games of `tests/fixtures/broadcast_round.pgn`, runs the TypeScript metrics/scoring pipeline, and asserts score **22**, **441** analysed moves, ACPL **16.7**, accuracy **93.6%**, and fast accuracy **98.6%**.
+It parses the first eight games of `tests/fixtures/broadcast_round.pgn`, runs the TypeScript metrics/scoring pipeline, and asserts score **22**, **441** analysed moves, ACPL **16.7**, accuracy **93.6%**, and fast accuracy **98.6%**. It also checks that the HTML export contains the verdict, disclaimer, and critical moments, and that the suspect demo still scores **89** with ranked critical finds.
 
 ### What it cannot do
 
@@ -152,17 +164,35 @@ Treat it as a triage tool: it ranks games and highlights patterns worth a closer
 ```
 index.html                 single-page dashboard (Vite entry)
 src/
-  app.js                   UI logic, charts, game review, browser jobs
   styles.css               dark theme
+  ui/                      typed UI modules
+    main.ts                bootstrap and event wiring
+    state.ts               shared UI state and job manager
+    els.ts / dom.ts        cached element refs and DOM helpers
+    scan.ts                Lichess, Chess.com, PGN, and demo entry points
+    progress.ts            progress panel, polling, cancel/new scan
+    report.ts              report orchestration (gauge, metrics, reasons)
+    games.ts               sortable/filterable game table
+    modal.ts               game review modal and move stepping
+    board.ts               chess.js replay and board rendering
+    chart.ts               game, evaluation, and timing charts
+    critical.ts            critical-moments shortlists
+    timing.ts              think-time vs tension analysis
+    library.ts             saved reports and report comparison
+    share.ts               JSON/CSV/HTML export and JSON import
+    engine-status.ts       engine pill and warm-up
+    notify.ts              error banner and toast
+    view-types.ts          report-move view types
   lib/
     analysis.ts            parsing, metrics, scoring, reasons
     chess-utils.ts         SAN/UCI helpers, eval/clock parsing, statistics
+    highlights.ts          critical-moment ranking and tension heuristics
     engine.ts              Stockfish WASM worker wrapper and pool
     lichess.ts             Lichess profile/export client and cloud evaluator
     chesscom.ts            Chess.com public API client
     jobs.ts                client-side job manager and progress
     storage.ts             IndexedDB report storage
-    export.ts              browser JSON/CSV downloads
+    export.ts              JSON/CSV/HTML export
     types.ts               shared interfaces
 public/
   engine/                  Stockfish 19 Lite WASM + GPL license

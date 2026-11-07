@@ -19,6 +19,7 @@
     </div>
     <div class="topbar-right">
       <span class="status-pill" id="engine-pill"><span class="dot"></span><span id="engine-pill-text">Checking engine…</span></span>
+      <button class="top-link top-button" id="open-library" type="button">Saved reports</button>
       <a class="top-link" href="https://github.com/kmeawnotfound/KnightWatch" target="_blank" rel="noreferrer">GitHub ↗</a>
       <a class="top-link" href="https://lichess.org" target="_blank" rel="noreferrer">lichess.org ↗</a>
       <a class="top-link" href="https://www.chess.com" target="_blank" rel="noreferrer">chess.com ↗</a>
@@ -310,6 +311,9 @@
         <div class="result-actions">
           <button class="btn ghost" id="export-json">Export JSON</button>
           <button class="btn ghost" id="export-csv">Export CSV</button>
+          <button class="btn ghost" id="export-html">Export HTML</button>
+          <button class="btn ghost" id="import-json">Import JSON</button>
+          <input type="file" id="import-file" accept=".json,application/json" class="hidden" />
           <button class="btn ghost" id="new-scan">New scan</button>
         </div>
       </div>
@@ -353,6 +357,23 @@
         <div class="notes" id="notes"></div>
       </div>
 
+      <div class="panel critical-card">
+        <div class="panel-head">
+          <h3>Critical moments</h3>
+          <span class="muted small">The decisions that shaped the games, and fast engine matches. Click any row to open the position.</span>
+        </div>
+        <div class="critical-grid">
+          <div>
+            <h4 class="critical-title">Costly decisions</h4>
+            <div class="critical-list" id="critical-errors"></div>
+          </div>
+          <div>
+            <h4 class="critical-title">Fast engine matches</h4>
+            <div class="critical-list" id="critical-finds"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="panel chart-card">
         <div class="panel-head">
           <h3>Game-by-game signal</h3>
@@ -360,6 +381,23 @@
         </div>
         <div class="chart-wrap" id="chart-wrap">
           <svg id="game-chart" viewBox="0 0 900 240" preserveAspectRatio="none" role="img" aria-label="Suspicion score by game"></svg>
+        </div>
+      </div>
+
+      <div class="panel timing-card">
+        <div class="panel-head">
+          <h3>Think time vs position tension</h3>
+          <span class="muted small">Balanced positions are harder. Fast, strong moves in tense positions are the ones worth reviewing first.</span>
+        </div>
+        <div class="timing-grid">
+          <div class="chart-wrap">
+            <svg id="timing-chart" viewBox="0 0 900 300" preserveAspectRatio="none" role="img" aria-label="Think time versus position tension"></svg>
+          </div>
+          <div class="timing-side">
+            <div class="timing-stats" id="timing-stats"></div>
+            <h4 class="critical-title">Instant strong moves</h4>
+            <div class="critical-list" id="timing-list"></div>
+          </div>
         </div>
       </div>
 
@@ -435,6 +473,30 @@
       </div>
       <div class="modal-body">
         <div class="modal-metrics" id="modal-metrics"></div>
+        <div class="board-wrap">
+          <div class="board-stage">
+            <div class="board" id="board"></div>
+            <svg class="board-arrows" id="board-arrows" viewBox="0 0 8 8" preserveAspectRatio="none" aria-hidden="true"></svg>
+          </div>
+          <div class="board-side">
+            <div class="board-controls">
+              <button class="btn ghost tiny" id="board-first" type="button" aria-label="First move">⏮</button>
+              <button class="btn ghost tiny" id="board-prev" type="button" aria-label="Previous move">◀</button>
+              <button class="btn ghost tiny" id="board-next" type="button" aria-label="Next move">▶</button>
+              <button class="btn ghost tiny" id="board-last" type="button" aria-label="Last move">⏭</button>
+              <button class="btn ghost tiny" id="board-flip" type="button" aria-label="Flip board">⇅</button>
+            </div>
+            <div class="board-info">
+              <span id="board-move" class="board-move">Start position</span>
+              <span id="board-eval" class="board-eval"></span>
+            </div>
+            <div class="board-legend">
+              <span><i class="arrow-key played"></i> Played</span>
+              <span><i class="arrow-key best"></i> Engine best</span>
+            </div>
+            <p class="board-hint">Use ← → to step through the game. Click any move below to jump to it.</p>
+          </div>
+        </div>
         <div class="eval-wrap">
           <div class="eval-head">
             <span>Evaluation</span>
@@ -453,8 +515,26 @@
     </div>
   </div>
 
+  <div id="library-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="library-title">
+    <div class="modal-backdrop" data-library-close="1"></div>
+    <div class="modal-panel library-panel">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Library</span>
+          <h3 id="library-title">Saved reports</h3>
+          <p class="muted" id="library-sub">Reports are stored in this browser only. Select two to compare them.</p>
+        </div>
+        <div class="modal-actions">
+          <button class="btn ghost tiny hidden" id="library-compare" type="button">Compare selected</button>
+          <button class="icon-btn" id="library-close" aria-label="Close">×</button>
+        </div>
+      </div>
+      <div class="modal-body" id="library-body"></div>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden" role="status"></div>
 
-  <script type="module" src="/src/app.js"></script>
+  <script type="module" src="/src/ui/main.ts"></script>
 </body>
 </html>

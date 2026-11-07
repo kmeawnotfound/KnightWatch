@@ -1,0 +1,28 @@
+import { byId } from "./dom";
+
+export const els = {
+  enginePill: byId("engine-pill"),
+  enginePillText: byId("engine-pill-text"),
+  scanForm: byId<HTMLFormElement>("scan-form"),
+  ccForm: byId<HTMLFormElement>("cc-form"),
+  pgnForm: byId<HTMLFormElement>("pgn-form"),
+  scanSubmit: byId<HTMLButtonElement>("scan-submit"),
+  ccSubmit: byId<HTMLButtonElement>("cc-submit"),
+  pgnSubmit: byId<HTMLButtonElement>("pgn-submit"),
+  progressPanel: byId("progress-panel"),
+  progressPhase: byId("progress-phase"),
+  progressTitle: byId("progress-title"),
+  progressPercent: byId("progress-percent"),
+  progressFill: byId("progress-fill"),
+  progressCounts: byId("progress-counts"),
+  progressEta: byId("progress-eta"),
+  logList: byId("log-list"),
+  cancelJob: byId("cancel-job"),
+  results: byId("results"),
+  demoBanner: byId("demo-banner"),
+  errorBanner: byId("error-banner"),
+  errorTitle: byId("error-title"),
+  errorText: byId("error-text"),
+  toast: byId("toast"),
+  gameModal: byId("game-modal"),
+};
