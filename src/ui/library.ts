@@ -251,7 +251,9 @@ function renderCompare(first: Report, second: Report): void {
   }
 
   table.appendChild(tbody);
-  body.appendChild(table);
+  const wrap = el("div", "compare-wrap");
+  wrap.appendChild(table);
+  body.appendChild(wrap);
 }
 
 function reportLabel(report: Report): string {

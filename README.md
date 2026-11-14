@@ -92,6 +92,7 @@ Every report includes a set of review tools, all running locally against the sto
 - **Think time vs position tension.** A scatter plot of the player's moves, with think time on a logarithmic axis and a "tension" score on the other (balanced positions rank higher than already-decided ones). Summary stats compare average time in tense versus clear positions, and **Instant strong moves** lists the fastest strong decisions in tense positions.
 - **Export and import.** Export the report as JSON (re-importable), CSV (per-game table), or a **self-contained HTML file** with the score, verdict, reasons, critical moments, and game table — no scripts, no external assets. Import a previously exported JSON report to load and store it again.
 - **Saved reports library.** The **Saved reports** button lists every report stored in this browser, with open, export, and delete actions. Select any two reports to compare them side by side: headline metrics plus per-component z-score deltas, so you can see what changed between scans.
+- **Works on phones.** The layout is responsive down to 320px: the input panel, summary, charts, tables, and comparison view reflow for narrow screens, the game and library modals go full-screen with safe-area padding, and the board scales with large tap targets for pieces and controls. On small screens only the external Lichess, Chess.com, and GitHub links are hidden; everything else, including saved reports, stays available.
 
 ---
 

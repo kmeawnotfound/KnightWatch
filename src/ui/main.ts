@@ -4,9 +4,10 @@ import { byId, $$ } from "./dom";
 import { disposeEngine, initEngineStatus, warmEngine } from "./engine-status";
 import { els } from "./els";
 import { compareSelected, closeLibrary, openLibrary } from "./library";
-import { closeModal, resetBoard, setBoardIndex, toggleBoardFlip, undoBoard } from "./modal";
+import { closeModal, redrawEvalChart, resetBoard, setBoardIndex, toggleBoardFlip, undoBoard } from "./modal";
 import { cancelJob, newScan } from "./progress";
 import { renderGames } from "./games";
+import { redrawReportCharts } from "./report";
 import { loadDemo, loadJobReport, setTab, submitChessCom, submitPgn, submitScan } from "./scan";
 import { exportCsv, exportHtml, exportJson, importJson } from "./share";
 import { state } from "./state";
@@ -76,8 +77,8 @@ function bindEvents(): void {
     });
   });
 
-  byId("modal-close").addEventListener("click", closeModal);
-  $$("[data-close]").forEach((node) => node.addEventListener("click", closeModal));
+  byId("modal-close").addEventListener("click", dismissGameModal);
+  $$("[data-close]").forEach((node) => node.addEventListener("click", dismissGameModal));
 
   byId("board-first").addEventListener("click", () => setBoardIndex(0));
   byId("board-prev").addEventListener("click", () => setBoardIndex(state.boardIndex - 1));
@@ -90,14 +91,23 @@ function bindEvents(): void {
   byId("board-reset").addEventListener("click", resetBoard);
 
   byId("open-library").addEventListener("click", () => void openLibrary());
-  byId("library-close").addEventListener("click", closeLibrary);
-  $$("[data-library-close]").forEach((node) => node.addEventListener("click", closeLibrary));
+  byId("library-close").addEventListener("click", () => {
+    closeLibrary();
+    restorePageCharts();
+  });
+  $$("[data-library-close]").forEach((node) =>
+    node.addEventListener("click", () => {
+      closeLibrary();
+      restorePageCharts();
+    }),
+  );
   byId("library-compare").addEventListener("click", () => void compareSelected());
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       closeModal();
       closeLibrary();
+      restorePageCharts();
       return;
     }
     if (!state.selectedGame) return;
@@ -117,10 +127,33 @@ function bindEvents(): void {
   });
 }
 
+/**
+ * Modal overlays hide the page scrollbar, which slightly widens the background
+ * report. Redraw once the overlay is gone so chart viewBoxes match again.
+ */
+function restorePageCharts(): void {
+  window.requestAnimationFrame(() => redrawReportCharts());
+}
+
+function dismissGameModal(): void {
+  closeModal();
+  restorePageCharts();
+}
+
 function init(): void {
   bindEvents();
   initEngineStatus();
   window.addEventListener("pagehide", disposeEngine);
+
+  let resizeTimer = 0;
+  window.addEventListener("resize", () => {
+    window.clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(() => {
+      redrawReportCharts();
+      redrawEvalChart();
+    }, 180);
+  });
+
   const jobId = new URLSearchParams(window.location.search).get("job");
   if (jobId) void loadJobReport(jobId);
 }

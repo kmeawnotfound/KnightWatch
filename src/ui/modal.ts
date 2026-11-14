@@ -79,14 +79,25 @@ export function openGame(game: GameMetrics, ply?: number): void {
     metrics.appendChild(node);
   });
 
-  drawEvalChart(byId<SVGSVGElement>("eval-chart"), game);
   renderMoves(game);
   setBoardIndex(state.boardIndex);
 
   byId("game-modal").classList.remove("hidden");
   document.body.style.overflow = "hidden";
+  drawEvalChart(byId<SVGSVGElement>("eval-chart"), game);
   window.setTimeout(() => byId("modal-close").focus(), 40);
-  window.requestAnimationFrame(() => highlightMove());
+  // Redraw after layout settles so the chart matches its final width.
+  window.requestAnimationFrame(() => {
+    drawEvalChart(byId<SVGSVGElement>("eval-chart"), game);
+    highlightMove();
+  });
+}
+
+/** Redraw the evaluation chart after a viewport change so labels stay crisp. */
+export function redrawEvalChart(): void {
+  const game = state.selectedGame;
+  if (!game || byId("game-modal").classList.contains("hidden")) return;
+  drawEvalChart(byId<SVGSVGElement>("eval-chart"), game);
 }
 
 export function closeModal(): void {

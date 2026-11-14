@@ -54,6 +54,13 @@ export function renderReport(report: Report): void {
   els.results.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+/** Redraw the report charts after a viewport change (e.g. phone rotation). */
+export function redrawReportCharts(): void {
+  if (!state.report || els.results.classList.contains("hidden")) return;
+  drawGameChart(byId<SVGSVGElement>("game-chart"), state.report.games || []);
+  renderTiming();
+}
+
 function renderGauge(summary: Report["summary"]): void {
   const score = Math.max(0, Math.min(100, Number(summary.score) || 0));
   const color = scoreColor(score);

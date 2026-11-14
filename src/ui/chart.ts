@@ -9,10 +9,30 @@ function svgEl<K extends keyof SVGElementTagNameMap>(tag: K): SVGElementTagNameM
   return document.createElementNS(NS, tag);
 }
 
+/**
+ * Charts are drawn in CSS pixels so labels stay crisp at any width. The SVG is
+ * normally visible when drawn; fall back to the design size if it is not.
+ */
+function chartSize(
+  svg: SVGSVGElement,
+  fallbackWidth: number,
+  fallbackHeight: number,
+): { width: number; height: number } {
+  const rect = svg.getBoundingClientRect();
+  return {
+    width: rect.width > 80 ? Math.round(rect.width) : fallbackWidth,
+    height: rect.height > 60 ? Math.round(rect.height) : fallbackHeight,
+  };
+}
+
+function setChartViewBox(svg: SVGSVGElement, width: number, height: number): void {
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+}
+
 export function drawGameChart(svg: SVGSVGElement, games: GameMetrics[]): void {
   while (svg.firstChild) svg.removeChild(svg.firstChild);
-  const width = 900;
-  const height = 240;
+  const { width, height } = chartSize(svg, 900, 240);
+  setChartViewBox(svg, width, height);
   const left = 42;
   const right = 14;
   const top = 16;
@@ -90,8 +110,8 @@ export function drawGameChart(svg: SVGSVGElement, games: GameMetrics[]): void {
 
 export function drawEvalChart(svg: SVGSVGElement, game: GameMetrics): void {
   while (svg.firstChild) svg.removeChild(svg.firstChild);
-  const width = 900;
-  const height = 220;
+  const { width, height } = chartSize(svg, 900, 220);
+  setChartViewBox(svg, width, height);
   const left = 34;
   const right = 12;
   const top = 14;
@@ -225,8 +245,8 @@ function timeNorm(seconds: number): number {
 
 export function drawTimingChart(svg: SVGSVGElement, points: TimingPoint[]): void {
   while (svg.firstChild) svg.removeChild(svg.firstChild);
-  const width = 900;
-  const height = 300;
+  const { width, height } = chartSize(svg, 900, 300);
+  setChartViewBox(svg, width, height);
   const left = 48;
   const right = 18;
   const top = 18;
