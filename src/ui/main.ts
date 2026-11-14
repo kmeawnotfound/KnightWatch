@@ -7,6 +7,7 @@ import { compareSelected, closeLibrary, openLibrary } from "./library";
 import { closeModal, redrawEvalChart, resetBoard, setBoardIndex, toggleBoardFlip, undoBoard } from "./modal";
 import { cancelJob, newScan } from "./progress";
 import { renderGames } from "./games";
+import { initPwa } from "./pwa";
 import { redrawReportCharts } from "./report";
 import { loadDemo, loadJobReport, setTab, submitChessCom, submitPgn, submitScan } from "./scan";
 import { exportCsv, exportHtml, exportJson, importJson } from "./share";
@@ -143,6 +144,7 @@ function dismissGameModal(): void {
 function init(): void {
   bindEvents();
   initEngineStatus();
+  initPwa();
   window.addEventListener("pagehide", disposeEngine);
 
   let resizeTimer = 0;

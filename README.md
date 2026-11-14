@@ -38,7 +38,7 @@ The built site is in `dist/`.
    - output directory: `dist`
 3. Deploy. No environment variables are required.
 
-The only runtime network calls are direct browser requests to `lichess.org` (profile, game export, optional cloud evaluation), `api.chess.com` (public profile and game archives), and same-origin requests for the bundled Stockfish WASM assets.
+The only runtime network calls are direct browser requests to `lichess.org` (profile, game export, optional cloud evaluation), `api.chess.com` (public profile and game archives), and same-origin requests for the bundled Stockfish WASM assets. A service worker caches the same-origin app assets for offline use and never intercepts or stores Lichess/Chess.com responses.
 
 ---
 
@@ -80,6 +80,21 @@ Two precomputed reports ship with the app:
 - **Synthetic suspect** — six generated games where Black plays strong engine moves in under two seconds. Scores **89 / 100 (Very high signal)**. The player is not real.
 
 These exist so you can explore the UI and sanity-check the scoring without an account.
+
+---
+
+## Install and offline use
+
+KnightWatch is installable as a PWA. Open the live site and choose **Install app** in the header (or the browser's install icon) to run it in its own window. Installation is optional; the site works identically in a normal tab.
+
+On the first visit, a service worker caches the app shell, the hashed JS/CSS bundles, the demo reports, the icons, and the Stockfish WASM engine — roughly 2.5 MB. After that:
+
+- **Saved reports** open, replay, compare, and export with no connection.
+- **Paste PGN** scans still run offline, because the engine is cached locally.
+- Lichess and Chess.com scans still need the network. The service worker never intercepts or caches API responses, so scans always use fresh data.
+- A deployed update shows a "new version is ready" toast; reload to switch to it.
+
+The worker is registered only in production builds, so `npm run dev` is never served from cache. `npm run build` emits `dist/sw.js` with the exact hashed asset list and a content-derived cache version, and old caches are deleted on activation.
 
 ---
 
@@ -182,8 +197,11 @@ src/
     library.ts             saved reports and report comparison
     share.ts               JSON/CSV/HTML export and JSON import
     engine-status.ts       engine pill and warm-up
+    pwa.ts                 service worker registration, install prompt, offline notice
     notify.ts              error banner and toast
     view-types.ts          report-move view types
+  pwa/
+    sw.js                  service worker template (precache list injected at build)
   lib/
     analysis.ts            parsing, metrics, scoring, reasons
     chess-utils.ts         SAN/UCI helpers, eval/clock parsing, statistics
@@ -197,6 +215,8 @@ src/
     types.ts               shared interfaces
 public/
   engine/                  Stockfish 19 Lite WASM + GPL license
+  icons/                   install icons (192, 512, maskable, Apple touch)
+  manifest.webmanifest     PWA manifest
   demo_clean.json          precomputed clean report
   demo_suspect.json        precomputed synthetic report
 scripts/
